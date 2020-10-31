@@ -171,7 +171,9 @@ Group by z-score
 
 Documentation
 =============
-link to docs
+* `Vinum documentation <https://vinum.readthedocs.io/en/latest/>`_
+* `Getting started <https://vinum.readthedocs.io/en/latest/getting_started.html>`_
+
 
 What Vinum is not
 =================
