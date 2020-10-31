@@ -1,0 +1,13 @@
+flake8
+moz-sql-parser==3.32.20026
+mypy
+numpy
+numpydoc
+pyarrow
+pydata-sphinx-theme
+pytest
+pytest-cov
+sphinx
+setuptools
+wheel
+twine
