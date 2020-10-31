@@ -14,7 +14,7 @@ DESCRIPTION = (
 URL = "https://github.com/dmitrykoval/vinum"
 PROJECT_URLS = {
     "Bug Tracker": "https://github.com/dmitrykoval/vinum/issues",
-    "Documentation": "https://github.com/dmitrykoval/vinum",
+    "Documentation": "https://vinum.readthedocs.io/en/latest/index.html",
     "Source Code": "https://github.com/dmitrykoval/vinum",
 }
 INSTALL_REQUIRES = [
