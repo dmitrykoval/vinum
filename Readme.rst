@@ -21,13 +21,16 @@ Key Features:
 =============
 
 * Natively supports vectorized Numpy and Python functions inside of
-    SELECT, WHERE, GROUP BY, HAVING and ORDER BY clauses.
-    All the numpy functions are available by default via the 'np.*' namespace.
+  SELECT, WHERE, GROUP BY, HAVING and ORDER BY clauses.
+  All the numpy functions are available by default via the 'np.*' namespace.
+
 * Written in pure Python and built from ground up on top of
-    `Apache Arrow <https://arrow.apache.org/>`_ and
-    `Numpy <https://numpy.org/>`_.
+  `Apache Arrow <https://arrow.apache.org/>`_ and
+  `Numpy <https://numpy.org/>`_.
+
 * Apache Arrow provides the foundation for "moving" data and enables minimal
-    overhead for transferring data to and from Numpy and Pandas.
+  overhead for transferring data to and from Numpy and Pandas.
+
 * Designed for in-memory analytics workflows, based on columnar memory layout.
 
 
