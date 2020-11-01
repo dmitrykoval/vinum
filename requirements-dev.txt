@@ -5,7 +5,7 @@ numpy
 numpydoc
 pyarrow
 pydata-sphinx-theme
-pytest
+pytest >= 5.0
 pytest-cov
 sphinx
 setuptools
