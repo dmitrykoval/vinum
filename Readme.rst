@@ -59,7 +59,7 @@ Examples
 Query python dict
 -----------------
 
-Create a a Table from a python dict and return result of the query
+Create a Table from a python dict and return result of the query
 as a Pandas DataFrame.
 
     >>> import vinum as vn
