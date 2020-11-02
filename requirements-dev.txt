@@ -1,11 +1,11 @@
 flake8
 moz-sql-parser==3.32.20026
 mypy
-numpy
+numpy>=1.19.0
 numpydoc
-pyarrow
+pyarrow>=2.0.0
 pydata-sphinx-theme
-pytest
+pytest>=6.0
 pytest-cov
 sphinx
 setuptools

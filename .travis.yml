@@ -1,0 +1,10 @@
+language: python
+python:
+  - "3.7"
+  - "3.8"
+# command to install dependencies
+install:
+  - pip install -r requirements-dev.txt
+# command to run tests
+script:
+  - pytest --cov=vinum vinum/tests
