@@ -184,7 +184,6 @@ class ArrowTable:
         if unnamed_count:
             self.rename_columns(new_names)
 
-
     def _new_table(self,
                    columns: Tuple[Iterable],
                    column_names: Tuple[str, ...]) -> None:

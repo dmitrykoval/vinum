@@ -5,7 +5,7 @@ from vinum.core.operators.numpy_operators import (
     NumpyOperator,
     BooleanFilterOperator,
     ComputeSelectExpressionsOperator,
-    LikeOperator
+    LikeOperator,
 )
 from vinum.core.operators.numpy_function_operators import CountOperator
 from vinum.core.operators.numpy_operator_mappings import SQL_OPERATOR_FUNCTIONS
@@ -192,8 +192,6 @@ class TestNumpyQueryPlanner:
             ("select tip <= tax from t",
              SQL_OPERATOR_FUNCTIONS[SQLOperator.LESS_THAN_OR_EQUAL],
              NumpyOperator),
-            ("select tip || tax from t",
-             SQL_OPERATOR_FUNCTIONS[SQLOperator.CONCAT], NumpyOperator),
     ))
     def test_select_logical_operators(self, test_arrow_table, query, function,
                                       operator_class):

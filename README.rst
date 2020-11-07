@@ -2,7 +2,14 @@
 Vinum
 *****
 
-|GitTutorial|_
+|PyPi|_ |Travis|_ |GitTutorial|_
+
+
+.. |PyPi| image:: https://img.shields.io/pypi/v/vinum.svg
+.. _PyPi: https://pypi.org/project/vinum/
+
+.. |Travis| image:: https://travis-ci.com/dmitrykoval/vinum.svg?branch=main
+.. _Travis: https://travis-ci.com/dmitrykoval/vinum
 
 .. |GitTutorial| image:: https://img.shields.io/badge/PR-Welcome-%23FF8300.svg?
 .. _GitTutorial: https://git-scm.com/book/en/v2/GitHub-Contributing-to-a-Project
@@ -14,7 +21,7 @@ Conceptually, Vinum's design goal is to provide deeper integration of
 Python data analysis tools such as `Numpy <https://numpy.org/>`_,
 `Pandas <https://pandas.pydata.org/>`_ or in general any Python code with
 the SQL language. Key features include native support of
-vectorized Numpy functions and Python functions inside of SQL queries.
+vectorized Numpy and Python functions as UDFs in SQL queries.
 
 
 Key Features:
@@ -36,15 +43,15 @@ Key Features:
 
 Design
 ======
-Vinum's query planner compiles SQL statements into a DAG of
-Arrow and Numpy operators and therefore integration with Numpy, Arrow 
-or native Python functions comes naturally. 
+Vinum's query planner compiles SQL SELECT statement into a DAG of
+vectorized Arrow and Numpy operators and therefore integration with Numpy,
+Arrow or native Python functions comes naturally.
 In Vinum, all Numpy functions are first class citizens and can be used inside 
 of SELECT, WHERE, GROUP BY, HAVING and ORDER BY clauses.
 
 Below is an example of a possible simplified query plan.
 
-.. image:: /doc/source/_static/dag_ex.png
+.. image:: https://github.com/dmitrykoval/vinum/raw/main/doc/source/_static/dag_ex.png
 
 
 Install
@@ -182,9 +189,9 @@ INSERT or UPDATE statements, as well as MVCC.
 
 Dependencies
 ============
-* pyarrow
-* numpy
-* moz_sql_parser
+* `Pyarrow <https://arrow.apache.org/docs/python/>`_
+* `NumPy <https://numpy.org/>`_
+* `Moz SQL Parser <https://github.com/mozilla/moz-sql-parser>`_
 
 Future plans
 ============

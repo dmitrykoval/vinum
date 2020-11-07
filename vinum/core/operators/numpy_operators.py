@@ -11,7 +11,10 @@ from typing import (
 )
 
 import numpy as np
+
 import pyarrow as pa
+import pyarrow.compute as pc
+import pyarrow.types as pt
 
 from vinum._typing import AnyArrayLike
 from vinum.arrow.arrow_table import ArrowTable
@@ -23,7 +26,12 @@ from vinum.core.operators.generic_operators import (
     AbstractCombineGroupByGroupsOperator,
     OperatorBaseType
 )
-from vinum.util.util import ensure_is_array, is_column, is_operator
+from vinum.util.util import (
+    ensure_is_array,
+    is_column,
+    is_operator,
+    is_numpy_array_dtype_in,
+)
 
 
 class NumpyOperator(Operator):
@@ -469,16 +477,115 @@ class OrderByOperator(NumpyOperator):
         return self._sort_order[0] == SortOrder.DESC
 
     @staticmethod
-    def _reverse_ranks(array: AnyArrayLike) -> np.ndarray:
+    def _inverse_sorted_indices(sorted_indices: pa.array) -> np.ndarray:
+        inverse_index = np.empty(len(sorted_indices), dtype='int64')
+        for idx, sorted_idx in enumerate(sorted_indices):
+            inverse_index[sorted_idx.as_py()] = idx
+        return inverse_index
+
+    def _sorted_index(self,
+                      array: AnyArrayLike,
+                      nulls_first: bool = False) -> np.ndarray:
+        """
+        Compute sorted indices of an unsorted array.
+
+        Return positions of the elements in a sorted array.
+        Effectively, is an equivalent of numpy.unique(array, return_inverse),
+        but supports None values.
+        Unique() would raise a TypeError exception in case an array
+        contains None values.
+
+        Uses Arrow dictionary_encode() function to compute a dict of unique
+        values and encode source array to unique indices.
+        Then we sort uniques to get a lookup_table for indices,
+        such that we know that for given unique index we know its position
+        in the sorted uniques array.
+        Secondly we update the initial encoded values to it's sorted indices.
+
+        Asymptotically, this function should be in the ballpark
+        of O(nlgn), with sort_indices(uniques) being the upper bound.
+        But it does multiple full array passes, including one in python,
+        which is far from optimal.
+        Ideally, should be migrated to Arrow, once something like
+        numpy.unique(array, return_inverse) is available.
+        Or ultimately, sorting by multiple columns is supported.
+
+        Parameters
+        ----------
+        array : AnyArrayLike
+            Array to compute sorted indices for.
+        nulls_first : bool
+            Put nulls first or last.
+
+        Returns
+        -------
+        np.ndarray
+            Array with values encoded as their indices in sorted array.
+        """
+        encoded_dict = pc.dictionary_encode(array)
+        uniques = encoded_dict.dictionary
+        if pt.is_boolean(uniques.type):
+            if uniques[0].as_py():
+                sorted_uniques = [pa.scalar(1), pa.scalar(0)]
+            else:
+                sorted_uniques = [pa.scalar(0), pa.scalar(1)]
+        else:
+            sorted_uniques = pc.sort_indices(uniques)
+        encoded_array = encoded_dict.indices
+
+        if nulls_first:
+            null_value = -1
+        else:
+            null_value = len(sorted_uniques) + 1
+
+        encoded_array = pc.fill_null(encoded_array, null_value)
+
+        lookup_table = self._inverse_sorted_indices(sorted_uniques)
+
+        indices = np.empty(len(encoded_array), dtype='int64')
+        for idx, encoded_pos in enumerate(encoded_array):
+            encoded_pos = encoded_pos.as_py()
+            if encoded_pos != null_value:
+                sorted_idx = lookup_table[encoded_pos]
+            else:
+                sorted_idx = encoded_pos
+            indices[idx] = sorted_idx
+        return indices
+
+    @staticmethod
+    def _invert_sorted_indices(array: AnyArrayLike) -> np.ndarray:
         groups, unique_indices = np.unique(array, return_inverse=True)
         return len(groups) - unique_indices - 1
 
+    def _map_null_cols_to_ints(self, columns) -> Tuple[AnyArrayLike, ...]:
+        """
+        Map boolean, string or object array values to ints.
+
+        This method is needed to make sorting of bool and str arrays
+        with None values work with numpy.lexsort.
+        """
+        cols = []
+        for column, sort_order in zip(columns, self._sort_order):
+            column = np.array(column)
+            if (is_numpy_array_dtype_in(column, (np.str, np.bool, np.object))
+                    and pc.is_null(column).true_count):
+                cols.append(
+                    self._sorted_index(
+                        column,
+                        nulls_first=(sort_order == SortOrder.DESC))
+                )
+            else:
+                cols.append(column)
+        return tuple(cols)
+
     def _order_by(self, columns: Tuple) -> None:
+        columns = self._map_null_cols_to_ints(columns)
+
         if self._is_mixed_sort_order():
             cols_in_asc_order = []
             for column, sort_order in zip(columns, self._sort_order):
                 if sort_order == SortOrder.DESC:
-                    column = self._reverse_ranks(column)
+                    column = self._invert_sorted_indices(column)
                 cols_in_asc_order.append(column)
             ind = np.lexsort(cols_in_asc_order[::-1])
         else:

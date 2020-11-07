@@ -9,6 +9,9 @@ from vinum.core.operators.numpy_function_operators import (
     DatetimeOperator,
     TimestampOperator,
     DateOperator,
+    ConcatOperator,
+    UpperStringOperator,
+    LowerStringOperator,
 )
 from vinum.core.operators.numpy_operator_mappings import AGGREGATE_OPERATORS
 from vinum.errors import FunctionError
@@ -38,6 +41,11 @@ _default_functions_registry = {
     'from_timestamp': TimestampOperator,
     'timedelta': np.timedelta64,
     'is_busday': np.is_busday,
+
+    # String
+    'concat': ConcatOperator,
+    'upper': UpperStringOperator,
+    'lower': LowerStringOperator,
 }
 
 

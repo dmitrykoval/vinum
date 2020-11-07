@@ -1,10 +1,13 @@
 from setuptools import setup, find_packages
 
+import versioneer
+
+
 with open("README.rst", "r") as f:
     long_description = f.read()
 
 NAME = "vinum"
-VERSION = "0.0.1"
+VERSION = versioneer.get_version()
 AUTHOR = "Dmitry Koval"
 AUTHOR_EMAIL = "dima@koval.space"
 DESCRIPTION = (
@@ -27,6 +30,7 @@ INSTALL_REQUIRES = [
 setup(
     name=NAME,
     version=VERSION,
+    cmdclass=versioneer.get_cmdclass(),
     author=AUTHOR,
     author_email=AUTHOR_EMAIL,
     description=DESCRIPTION,

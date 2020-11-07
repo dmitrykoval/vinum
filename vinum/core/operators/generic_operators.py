@@ -147,13 +147,15 @@ class Operator(HasColumnName, RecursiveTreePrint):
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=RuntimeWarning)
                 if self._is_binary_op:
-                    return self._apply_binary_args_function(
+                    result = self._apply_binary_args_function(
                         *self._processed_args
                     )
                 else:
-                    return self.function(*self._processed_args)
+                    result = self.function(*self._processed_args)
         else:
-            return self._run()
+            result = self._run()
+
+        return self._post_process_result(result)
 
     def _run(self) -> Any:
         """
@@ -210,6 +212,13 @@ class Operator(HasColumnName, RecursiveTreePrint):
     def _resolve_operator(self, operator: 'Operator') -> Any:
         assert self._executor is not None
         return self._executor.get_operator_result(operator, self.table)
+
+    @staticmethod
+    def _post_process_result(result: Any) -> Any:
+        """
+        Apply post-processing transformations to the result.
+        """
+        return result
 
     def str_lines_repr(self,
                        indent_level: int,

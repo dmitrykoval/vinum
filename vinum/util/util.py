@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Iterable, Tuple, Any, TYPE_CHECKING, FrozenSet, List
 
 if TYPE_CHECKING:
-    from vinum._typing import QueryBaseType
+    from vinum._typing import QueryBaseType, AnyArrayLike
     from vinum.parser.query import Column
 
 TREE_INDENT_SYMBOL = '  '
@@ -105,6 +105,23 @@ def is_numpy_array(array: Any) -> bool:
     return isinstance(array, np.ndarray)
 
 
+def is_numpy_str_array(array: Any) -> bool:
+    return is_numpy_array(array) and np.issubdtype(array.dtype, np.str)
+
+
+def is_numpy_bool_array(array: Any) -> bool:
+    return is_numpy_array(array) and np.issubdtype(array.dtype, np.bool)
+
+
+def is_numpy_array_dtype_in(array: Any, dtypes: Tuple) -> bool:
+    if not is_numpy_array(array):
+        return False
+    for dtype in dtypes:
+        if np.issubdtype(array.dtype, dtype):
+            return True
+    return False
+
+
 def is_pyarrow_array(array: Any) -> bool:
     return isinstance(array, pa.Array) or isinstance(array, pa.ChunkedArray)
 
@@ -188,3 +205,10 @@ def is_not_null_mask(array: np.ndarray) -> np.ndarray:
         Boolean mask with True indicating non-nulls in the input array.
     """
     return ~is_null_mask(array)
+
+
+def safe_array_len(array: 'AnyArrayLike') -> int:
+    if is_numpy_array(array):
+        return array.size   # type: ignore
+    else:
+        return len(array)
