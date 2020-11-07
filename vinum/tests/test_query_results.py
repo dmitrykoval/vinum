@@ -1531,3 +1531,8 @@ class TestQueryResults:
         actual_now = dt_col[0]
         expected_now = np.datetime64('now', unit)
         assert (expected_now - actual_now) < test_execution_time_tolerance
+
+    @pytest.mark.parametrize("source_tbl", (test_table,))
+    def test_head(self, source_tbl):
+        head_df = source_tbl.head(2)
+        assert head_df.shape == (2, 11)
