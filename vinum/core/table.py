@@ -1,5 +1,5 @@
 import pyarrow as pa
-from typing import Dict
+from typing import Dict, TYPE_CHECKING
 
 from vinum.arrow.arrow_table import ArrowTable
 from vinum.core.operators.generic_operators import Operator
@@ -7,6 +7,9 @@ from vinum.executor.executor import RecursiveExecutor
 from vinum.parser.parser import parser_factory
 from vinum.parser.query import Query
 from vinum.planner.numpy_planner import NumpyQueryPlanner
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 
 class Table:
@@ -402,7 +405,7 @@ class Table:
         query_dag = self._create_plan_dag(query_tree, self._arrow_table)
         print(f'Query DAG:\n {query_dag}')
 
-    def head(self, n: int) -> pa.Table:
+    def head(self, n: int) -> 'pd.DataFrame':
         """
         Return first n rows of a table as Pandas DataFrame
 
