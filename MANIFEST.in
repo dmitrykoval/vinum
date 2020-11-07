@@ -1,0 +1,2 @@
+include versioneer.py
+include vinum/_version.py

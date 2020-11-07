@@ -32,11 +32,17 @@ from vinum.io.arrow import (  # noqa: F401
 from vinum.core.table import Table  # noqa: F401
 
 
-__version__ = '0.0.1'
+from ._version import get_versions
+__version__ = get_versions()['version']
+del get_versions
 
 
 __doc__ = """
-vinum - a Python data analysis library with SQL interface
-for in-memory analytics.
-=================================================================================
+**Vinum** is a SQL processor written in pure Python, designed for
+data analysis workflows and in-memory analytics. 
+Conceptually, Vinum's design goal is to provide deeper integration of 
+Python data analysis tools such as `Numpy <https://numpy.org/>`_,
+`Pandas <https://pandas.pydata.org/>`_ or in general any Python code with
+the SQL language. Key features include native support of
+vectorized Numpy and Python functions as UDFs in SQL queries.
 """
