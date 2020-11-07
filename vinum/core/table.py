@@ -402,6 +402,7 @@ class Table:
         query_dag = self._create_plan_dag(query_tree, self._arrow_table)
         print(f'Query DAG:\n {query_dag}')
 
+    @property
     def schema(self):
         """
         Return schema of the table.
