@@ -8,3 +8,5 @@ install:
 # command to run tests
 script:
   - pytest --cov=vinum vinum/tests
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
