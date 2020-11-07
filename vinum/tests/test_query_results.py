@@ -812,6 +812,30 @@ built_in_functions = (
                  '33.4', '2.43'),
      }),
 
+    (test_groupby_table,
+     "select concat('random string', '>', 7) res",
+     {
+         'res': ('random string>7',),
+     }),
+
+    (test_groupby_table,
+     "select upper('random string') res",
+     {
+         'res': ('RANDOM STRING',),
+     }),
+
+    (test_groupby_table,
+     "select lower('RANDOM STRING') res",
+     {
+         'res': ('random string',),
+     }),
+
+    (test_groupby_table,
+     "select concat(upper('random s'), 13, lower(upper('LUCKY'))) res",
+     {
+         'res': ('RANDOM S13lucky',),
+     }),
+
 )
 
 
@@ -1241,6 +1265,46 @@ null_data = (
          'var_total': (0.0, 0.0, 0.0, 0.0),
          'median_total': (33.40, 143.15, 53.1, 33.4),
          'sum_total': (33.40, 143.15, 53.1, 33.4),
+     }),
+
+    (test_table_null,
+     "select city_from || '-' || city_to || name as res from t order by id",
+     {
+         'res': ('None-MunichJoe',
+                 'Munich-RivaNone',
+                 'None-NaplesJoseph',
+                 'San Francisco-NaplesJoseph',
+                 'Berlin-RivaNone',
+                 'Munich-RivaJonas',
+                 'Berlin-MunichJoseph',
+                 'Berlin-MunichJoe')
+     }),
+
+    (test_table_null,
+     "select concat(city_from, 7, city_to, name) as res from t order by id",
+     {
+         'res': ('None7MunichJoe',
+                 'Munich7RivaNone',
+                 'None7NaplesJoseph',
+                 'San Francisco7NaplesJoseph',
+                 'Berlin7RivaNone',
+                 'Munich7RivaJonas',
+                 'Berlin7MunichJoseph',
+                 'Berlin7MunichJoe')
+     }),
+
+    (test_table_null,
+     "select upper(city_from) res from t order by id",
+     {
+         'res': ('NONE', 'MUNICH', 'NONE', 'SAN FRANCISCO',
+                 'BERLIN', 'MUNICH', 'BERLIN', 'BERLIN'),
+     }),
+
+    (test_table_null,
+     "select lower(city_from) res from t order by id",
+     {
+         'res': ('none', 'munich', 'none', 'san francisco',
+                 'berlin', 'munich', 'berlin', 'berlin'),
      }),
 
 )

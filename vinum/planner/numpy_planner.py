@@ -66,7 +66,8 @@ class NumpyQueryPlanner(QueryPlanner):
     def _instantiate_operator(op: Union[Callable, Type[Operator]],
                               default_class: Type[Operator],
                               arguments: Iterable[OperatorBaseType],
-                              table: ArrowTable) -> Operator:
+                              table: ArrowTable,
+                              is_binary_op: bool = False) -> Operator:
         """
         Instantiate Operator.
 
@@ -96,7 +97,10 @@ class NumpyQueryPlanner(QueryPlanner):
                 and issubclass(op, NumpyOperator)):  # type: ignore
             return op(arguments, table)
         else:
-            return default_class(arguments, table, function=op)
+            return default_class(arguments,
+                                 table,
+                                 function=op,
+                                 is_binary_op=is_binary_op)
 
     def _process_expressions_tree(
             self,
@@ -141,12 +145,14 @@ class NumpyQueryPlanner(QueryPlanner):
             arguments.append(arg)
 
         if expr.sql_operator in SQL_OPERATOR_FUNCTIONS.keys():
-            operator = NumpyOperator(
+            operator = self._instantiate_operator(
+                SQL_OPERATOR_FUNCTIONS[expr.sql_operator],
+                NumpyOperator,
                 arguments,
                 self._table,
-                function=SQL_OPERATOR_FUNCTIONS[expr.sql_operator],
-                is_binary_op=expr.sql_operator in BINARY_OPERATORS,
-            )   # type: Operator
+                is_binary_op=(expr.sql_operator in BINARY_OPERATORS)
+            )
+
         elif expr.sql_operator in (SQLOperator.LIKE, SQLOperator.NOT_LIKE):
             operator = LikeOperator(
                 tuple(arguments),   # type: ignore

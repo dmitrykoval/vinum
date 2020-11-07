@@ -124,6 +124,36 @@ See: `numpy.log10 <https://numpy.org/doc/stable/reference/generated/numpy.log10.
 
 
 
+================
+String functions
+================
+
+
+concat
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**concat(arg1, arg2, ...)** - concatenate string arguments.
+
+If argument is not a string type, would be converted to string.
+
+See: `numpy.char.add <https://numpy.org/doc/stable/reference/generated/numpy.char.add.html>`_
+
+upper
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**upper(arg)** - convert a string to uppercase.
+
+See: `numpy.char.upper <https://numpy.org/doc/1.19/reference/generated/numpy.char.upper.html>`_
+
+lower
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**lower(arg)** - convert a string to lowercase.
+
+See: `numpy.char.lower <https://numpy.org/doc/1.19/reference/generated/numpy.char.lower.html>`_
+
+
+
 
 ==================
 Datetime functions

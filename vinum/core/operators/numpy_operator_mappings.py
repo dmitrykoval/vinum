@@ -2,7 +2,10 @@ from functools import partial
 
 import numpy as np
 
-from vinum.core.operators.numpy_function_operators import CountOperator
+from vinum.core.operators.numpy_function_operators import (
+    CountOperator,
+    ConcatOperator,
+)
 from vinum.parser.query import SQLOperator
 from vinum.util.util import is_null_mask, is_not_null_mask
 
@@ -44,7 +47,7 @@ SQL_OPERATOR_FUNCTIONS = {
         np.logical_or(x < low, x > high),
 
     # String operators
-    SQLOperator.CONCAT: lambda *args: np.core.defchararray.add(*args),
+    SQLOperator.CONCAT: ConcatOperator,
 
 }
 

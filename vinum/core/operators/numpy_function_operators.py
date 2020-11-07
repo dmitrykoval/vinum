@@ -1,12 +1,19 @@
-from typing import Optional, Any
+from typing import Optional, Any, Iterable, Tuple, Union
 
 import numpy as np
 
+from vinum._typing import OperatorBaseType
+from vinum.arrow.arrow_table import ArrowTable
 from vinum.core.operators.generic_operators import AggregateOperator, Operator
 from vinum.core.operators.numpy_operators import NumpyOperator
 from vinum.errors import OperatorError
 from vinum.parser.query import Column
-from vinum.util.util import ensure_is_array, is_not_null_mask
+from vinum.util.util import (
+    ensure_is_array,
+    is_not_null_mask,
+    is_numpy_array,
+    is_numpy_str_array,
+)
 
 
 class CountOperator(AggregateOperator, NumpyOperator):
@@ -186,3 +193,81 @@ class StringCastOperator(AbstractCastOperator):
     String type cast built-in function.
     """
     type = 'str'
+
+
+class AbstractStringOperator(NumpyOperator):
+    """
+    Abstract String Operator.
+
+    Provides basic functionality for string manipulation,
+    such as casting non-string arguments to string, etc.
+    """
+    @staticmethod
+    def _cast_args_to_str(args: Iterable
+                          ) -> Tuple[Union[str, np.ndarray], ...]:
+        str_args = []
+        for arg in args:
+            if is_numpy_array(arg):
+                str_args.append(np.array(arg, dtype="U"))
+            elif not isinstance(arg, str):
+                str_args.append(str(arg))
+            else:
+                str_args.append(arg)
+        return tuple(str_args)
+
+    def _process_arguments(self) -> None:
+        super()._process_arguments()
+        self._processed_args = self._cast_args_to_str(self._processed_args)
+
+    @staticmethod
+    def _post_process_result(result: Any) -> Any:
+        """
+        In case the result is a single string, wrap it as an array.
+        """
+        if is_numpy_str_array(result) and result.shape == ():
+            return np.array((result,))
+        else:
+            return result
+
+
+class ConcatOperator(AbstractStringOperator):
+    """
+    String Concat Operator.
+
+    Concatenate all the arguments as strings.
+
+    Parameters
+    ----------
+    arguments : Iterable[OperatorBaseType, ...]
+        Columns or string literals to concatenate.
+    table : ArrowTable
+        Table.
+    """
+    def __init__(self,
+                 arguments: Iterable[OperatorBaseType],
+                 table: ArrowTable) -> None:
+        super().__init__(arguments=arguments,
+                         table=table,
+                         function=np.char.add,
+                         is_binary_op=True,
+                         depends_on=None)
+
+
+class UpperStringOperator(AbstractStringOperator):
+    """
+    Upper String Operator.
+
+    Convert a string to uppercase.
+    """
+    def _run(self) -> Any:
+        return np.char.upper(*self._processed_args)
+
+
+class LowerStringOperator(AbstractStringOperator):
+    """
+    Lower String Operator.
+
+    Convert a string to lowercase.
+    """
+    def _run(self) -> Any:
+        return np.char.lower(*self._processed_args)
