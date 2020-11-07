@@ -1307,6 +1307,48 @@ null_data = (
                  'berlin', 'munich', 'berlin', 'berlin'),
      }),
 
+    (test_table_null,
+     "select id from t order by city_from, city_to",
+     {
+         'id': (7, 8, 5, 2, 6, 4, 1, 3)
+     }),
+
+    (test_table_null,
+     "select id from t order by city_to, city_from, name",
+     {
+         'id': (8, 7, 1, 4, 3, 5, 6, 2)
+     }),
+
+    (test_table_null,
+     "select id from t order by is_vendor",
+     {
+         'id': (3, 1, 2, 5, 4, 6, 7, 8)
+     }),
+
+    (test_table_null,
+     "select id from t order by is_vendor desc, lng desc",
+     {
+         'id': (5, 1, 2, 3, 4, 7, 8, 6)
+     }),
+
+    (test_table_null,
+     "select id from t order by name, is_vendor, lng",
+     {
+         'id': (1, 8, 6, 3, 7, 4, 2, 5)
+     }),
+
+    (test_table_null,
+     "select id from t order by name desc, is_vendor desc, lng desc",
+     {
+         'id': (3, 4, 7, 6, 1, 8, 5, 2)
+     }),
+
+    (test_table_null,
+     "select id from t order by name desc, is_vendor desc, np.log(lng) desc",
+     {
+         'id': (3, 4, 7, 6, 1, 8, 5, 2)
+     }),
+
 )
 
 
