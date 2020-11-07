@@ -402,6 +402,22 @@ class Table:
         query_dag = self._create_plan_dag(query_tree, self._arrow_table)
         print(f'Query DAG:\n {query_dag}')
 
+    def head(self, n: int) -> pa.Table:
+        """
+        Return first n rows of a table as Pandas DataFrame
+
+        Parameters
+        ----------
+        n : int
+            Number of first rows to return.
+
+        Returns
+        -------
+        :class:`pandas.DataFrame`
+        """
+        assert n >= 0
+        return self._arrow_table.slice(n).to_pandas()
+
     @property
     def schema(self):
         """
