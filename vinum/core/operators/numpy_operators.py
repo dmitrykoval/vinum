@@ -247,13 +247,13 @@ class GroupByArguments:
             expr for expr in self._group_by if is_operator(expr)
         )
 
-    def get_group_by_expr_names(self) -> Tuple[str, ...]:
+    def group_by_expr_names(self) -> Tuple[str, ...]:
         if not self._group_by_expr_names:
             self._process_column_names()
 
         return tuple(self._group_by_expr_names)
 
-    def get_group_by_column_names(self) -> Tuple[str, ...]:
+    def group_by_col_names(self) -> Tuple[str, ...]:
         if not self._group_by_col_names:
             self._process_column_names()
 
@@ -316,21 +316,9 @@ class HashSplitGroupByOperator(NumpyOperator):
         self.group_by_expr_columns: Dict[str, AnyArrayLike] = {}
 
         for column_name, expression in (
-                zip(self._group_by_args.get_group_by_expr_names(), expressions)
+                zip(self._group_by_args.group_by_expr_names(), expressions)
         ):
             self.table.add_column(column_name, expression)
-
-    def _get_group_key_for_row(self, row_idx: int) -> Tuple:
-        """
-        Return a hash-table key of GROUP BY columns,
-         for a given row index.
-        """
-        keys = []
-        for col_name in self._group_by_args.get_group_by_column_names():
-            row_arr = self.table.take_pylist_from_column(col_name, [row_idx])
-            row_key = row_arr[0]
-            keys.append(row_key)
-        return tuple(keys)
 
     def _group_by(self, group_by_expressions: Tuple) -> Tuple[ArrowTable, ...]:
         """
@@ -348,9 +336,25 @@ class HashSplitGroupByOperator(NumpyOperator):
         """
         self._add_table_columns(group_by_expressions)
 
+        unique_groups = []
+        group_cardinality = 1
+        for col_name in self._group_by_args.group_by_col_names():
+            column = self.table.get_np_column_by_name(col_name)
+            uniques = pc.dictionary_encode(column)
+            uniques_len = len(uniques.dictionary)
+
+            group = uniques.indices
+            group = group.fill_null(uniques_len + 1)
+            group = group.to_numpy()
+            group = (group + 1) * group_cardinality
+            unique_groups.append(group)
+
+            group_cardinality = uniques_len + 2
+
+        group_keys = np.sum(unique_groups, axis=0)
+
         group_table_indices = defaultdict(list)
-        for idx in range(self.table.num_rows):
-            key = self._get_group_key_for_row(idx)
+        for idx, key in enumerate(group_keys):
             group_table_indices[key].append(idx)
 
         groups = []
