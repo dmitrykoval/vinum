@@ -280,6 +280,7 @@ class Table:
         This is a convience method which runs :method:`vinum.Table.sql` and
         then calls :method:`vinum.Table.to_pandas` on the result.
         Equivalent to:
+
         >>> res_tbl = tbl.sql('select * from t')
         >>> res_tbl.to_pandas()
            col1  col2
