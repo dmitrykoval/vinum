@@ -379,7 +379,7 @@ class NumpyQueryPlanner(QueryPlanner):
                 self._table
             )
 
-            groupby_exprs_columns = group_by_args.get_group_by_expr_names()
+            groupby_exprs_columns = group_by_args.group_by_expr_names()
             select_columns_agg = []
             for column in select_columns:   # type: Any
                 if (is_operator(column)
