@@ -3,7 +3,7 @@ language: cpp
 addons:
   apt:
     packages: &core_build
-    - g++-5.4
+    - g++-5
     - cmake
     - ninja-build
   homebrew:
@@ -47,7 +47,7 @@ before_install:
   - |
     PY=python
     if [ "$TRAVIS_OS_NAME" = "linux" ]; then
-      export CXX=g++-5.4 CC=gcc-5.4;
+      export CXX=g++-5 CC=gcc-5;
       if [ $(echo "$PYTHON" | grep "^3\.") ]; then
         PY=python${PYTHON}
         curl https://bootstrap.pypa.io/get-pip.py | sudo -H $PY
