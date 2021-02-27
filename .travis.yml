@@ -73,6 +73,7 @@ install:
 before_script:
   - $PY --version
   - $PY setup.py build_ext --inplace
+  - $PY setup.py install
 script:
   - pytest --cov=vinum vinum/tests
 after_success:
