@@ -1,8 +1,66 @@
 language: generic
-compiler: clang
-python:
-  - "3.7"
-  - "3.8"
+
+sudo: required
+
+addons:
+  apt:
+    packages: &core_build
+    - g++-4.9
+    - cmake
+  homebrew:
+    packages:
+    - pyenv
+    update: true
+
+matrix:
+  fast_finish: true
+  include:
+  - os: linux
+    env: PYTHON=3.7
+    dist: xenial
+    services:
+    - docker
+    addons:
+      apt:
+        update: true
+        sources:
+        - ubuntu-toolchain-r-test
+        - deadsnakes
+        packages:
+        - *core_build
+        - python3.7
+  - os: linux
+    env: PYTHON=3.8
+    dist: xenial
+    services:
+    - docker
+    addons:
+      apt:
+        update: true
+        sources:
+        - ubuntu-toolchain-r-test
+        - deadsnakes
+        packages:
+        - *core_build
+        - python3.8
+
+before_install:
+  - |
+    PY=python
+    if [ "$TRAVIS_OS_NAME" = "linux" ]; then
+      export CXX=g++-4.9 CC=gcc-4.9;
+      if [ $(echo "$PYTHON" | grep "^3\.") ]; then
+        PY=python${PYTHON}
+        curl https://bootstrap.pypa.io/get-pip.py | sudo -H $PY
+      fi
+    fi
+    if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
+      pyenv install $PYTHON
+      PY=/Users/travis/.pyenv/versions/${PYTHON}/bin/python
+    fi
+    PIP="$PY -m pip"
+    sudo -H $PIP install --upgrade pip
+
 install:
   - pip install -r requirements-dev.txt
 before_script:
