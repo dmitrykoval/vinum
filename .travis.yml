@@ -1,15 +1,5 @@
 language: cpp
 
-addons:
-  apt:
-    packages:
-      - g++-7
-      - ninja-build
-  homebrew:
-    packages:
-      - pyenv
-    update: true
-
 matrix:
   fast_finish: true
   include:
@@ -25,10 +15,15 @@ matrix:
           - deadsnakes
         packages:
           - g++-7
+          - ninja-build
           - python3.7
+      homebrew:
+        packages:
+          - pyenv
     env:
       - PYTHON=3.7
       - MATRIX_EVAL="CC=gcc-7 && CXX=g++-7"
+
   - os: linux
     dist: xenial
     services:
@@ -41,7 +36,11 @@ matrix:
           - deadsnakes
         packages:
           - g++-7
+          - ninja-build
           - python3.8
+      homebrew:
+        packages:
+          - pyenv
     env:
       - PYTHON=3.8
       - MATRIX_EVAL="CC=gcc-7 && CXX=g++-7"
