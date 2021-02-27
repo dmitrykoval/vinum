@@ -86,6 +86,7 @@ class CMakeBuild(build_ext):
             f"-DCMAKE_BUILD_TYPE={cfg}",  # not used on MSVC, but no harm
             f"-DARROW_INCLUDE_DIR={pa.get_include()}",
             f"-DARROW_LIB_DIR={pa.get_library_dirs()}",
+            f"-DCMAKE_VERBOSE_MAKEFILE:BOOL=ON",
         ]
         build_args = [
             "--target",
