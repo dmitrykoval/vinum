@@ -2,12 +2,10 @@ language: python
 python:
   - "3.7"
   - "3.8"
-before_install:
-  - python setup.py build_ext --inplace
-# command to install dependencies
 install:
   - pip install -r requirements-dev.txt
-# command to run tests
+before_script:
+  - python setup.py build_ext --inplace
 script:
   - pytest --cov=vinum vinum/tests
 after_success:
