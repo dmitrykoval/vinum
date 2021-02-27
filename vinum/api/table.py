@@ -2,14 +2,14 @@ import pyarrow as pa
 from typing import Dict, TYPE_CHECKING
 
 from vinum.arrow.arrow_table import ArrowTable
-from vinum.core.operators.generic_operators import Operator
 from vinum.executor.executor import RecursiveExecutor
 from vinum.parser.parser import parser_factory
 from vinum.parser.query import Query
-from vinum.planner.numpy_planner import NumpyQueryPlanner
+from vinum.planner.planner import QueryPlanner
 
 if TYPE_CHECKING:
     import pandas as pd
+    from vinum.core.base import Operator
 
 
 class Table:
@@ -87,9 +87,10 @@ class Table:
     on arrays, represented by columns 'col1' and 'col2'.
 
     """
-    def __init__(self, arrow_table: pa.Table):
+    def __init__(self, arrow_table: pa.Table, reader=None):
         super().__init__()
         self._arrow_table: ArrowTable = ArrowTable(arrow_table)
+        self._reader = reader
 
     @classmethod
     def from_pydict(cls, pydict: Dict):
@@ -179,13 +180,13 @@ class Table:
         return cls(table)
 
     @staticmethod
-    def _create_query_tree(query, query_table: ArrowTable) -> Query:
-        return parser_factory(query, query_table).generate_query_tree()
+    def _create_query_tree(query, schema: pa.Schema) -> Query:
+        return parser_factory(query, schema).generate_query_tree()
 
     @staticmethod
     def _create_plan_dag(query_tree: Query,
-                         query_table: ArrowTable) -> Operator:
-        return NumpyQueryPlanner(query_tree, query_table).plan_query()
+                         query_table: ArrowTable) -> 'Operator':
+        return QueryPlanner(query_tree, table=query_table).plan_query()
 
     def sql(self, query: str):
         """
@@ -262,15 +263,15 @@ class Table:
         1     4     11
         2     5     19
         """
-        query_table = self._arrow_table.clone()
+        query_table = self._arrow_table
 
-        query_tree = self._create_query_tree(query, query_table)
+        query_tree = self._create_query_tree(query, query_table.get_schema())
         query_dag = self._create_plan_dag(query_tree, query_table)
 
         executor = RecursiveExecutor()
-        executor.execute_dag(query_dag)
+        result_table = executor.execute(query_dag)
 
-        return Table(query_table.get_table())
+        return Table(result_table.get_table())
 
     def sql_pd(self, query: str):
         """
@@ -355,8 +356,7 @@ class Table:
 
     def explain(self, query: str, print_query_tree=False):
         """
-        Returns a query plan in form of operators DAG
-        (Directed Acyclic Graph).
+        Returns a query plan as a string.
 
         Parameters
         ----------
@@ -390,21 +390,23 @@ class Table:
               Operator: CombineGroupByGroupsOperator
                 Operator: TakeGroupByColumnValuesOperator
                   Operator: HashSplitGroupByOperator
-                    Operator: IntCastOperator
+                    Operator: IntCastFunction
                         Column: fare
                 Operator: CountOperator
                     Literal: *
                 Operator: TakeGroupByColumnValuesOperator
-            Operator: OrderByOperator
+            Operator: SortOperator
                 Column: fare
             Operator: RetainTableColumnsOperator
             Operator: LimitOperator
         """
-        query_tree = self._create_query_tree(query, self._arrow_table)
+        query_tree = self._create_query_tree(query,
+                                             self._arrow_table.get_schema())
+        plan_str = ''
         if print_query_tree:
-            print(query_tree)
+            plan_str += str(query_tree)
         query_dag = self._create_plan_dag(query_tree, self._arrow_table)
-        print(f'Query DAG:\n {query_dag}')
+        return f'{plan_str}\nQuery plan:\n {query_dag}'
 
     def head(self, n: int) -> 'pd.DataFrame':
         """
@@ -420,7 +422,7 @@ class Table:
         :class:`pandas.DataFrame`
         """
         assert n >= 0
-        return self._arrow_table.slice(n).to_pandas()
+        return self._arrow_table.slice(n).get_table().to_pandas()
 
     @property
     def schema(self):

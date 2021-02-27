@@ -1,12 +1,11 @@
-from typing import List, Iterable, TYPE_CHECKING, Tuple
+from typing import List, Iterable, TYPE_CHECKING
 
 import numpy as np
 
 import pyarrow as pa
 from pyarrow.lib import ChunkedArray, ArrowInvalid
 
-from vinum._typing import PyArrowArray, AnyArrayLike
-from vinum.parser.query import Column
+from vinum._typing import PyArrowArray
 
 if TYPE_CHECKING:
     try:
@@ -19,20 +18,9 @@ class ArrowTable:
     """
     Apache Arrow Table abstraction.
 
-    Arrow Table represents a foundational data structure on top of which
-    Pine executes a SQL query.
+    Arrow Table represents a foundational data structure on which
+    Vinum executes a SQL query.
     Subsequently, the result of the query is stored as an Arrow Table.
-
-    ArrowTable is a shared and mutable object. In case of concurrent
-    execution, additional synchronization layer has to be provided.
-
-    During the process of query execution, individual Operators may get
-    get the data from a table or modify the data inside of the table.
-    For example, BooleanFilterOperator may update the contents of the
-    table based on filter predicate.
-
-    Single instance of ArrowTable is shared during the entire lifecycle
-    of query execution.
 
     Where possible, ArrowTable tries to return a zero-copy view of columns.
     When it's not possible to represent an underlying data structure as a
@@ -69,108 +57,42 @@ class ArrowTable:
     def has_column(self, column_name: str) -> bool:
         return column_name in self._table.schema.names
 
-    def get_pa_column(self, column: Column) -> pa.ChunkedArray:
-        return self.get_pa_column_by_name(column.get_column_name())
+    def combine_chunks(self) -> 'ArrowTable':
+        return ArrowTable(
+            self._table.combine_chunks()
+        )
 
-    def get_pa_column_by_index(self, index: int) -> pa.ChunkedArray:
-        return self._table.columns[index]
+    def get_column_index(self, column_name: str) -> int:
+        return self._table.schema.names.index(column_name)
 
-    def get_pa_column_by_name(self, column_name: str) -> pa.ChunkedArray:
+    def get_pa_column_by_index(self, index: int) -> pa.Array:
+        chunked = self._table.columns[index]
+
+        assert chunked.num_chunks <= 1
+
+        return chunked.chunk(0) if chunked.num_chunks else pa.array([])
+
+    def get_pa_column_by_name(self, column_name: str) -> pa.Array:
         if column_name not in self._table.schema.names:
             raise ValueError(f'Column "{column_name}" is not found.')
         return self.get_pa_column_by_index(
-            self._table.schema.names.index(column_name)
+            self.get_column_index(column_name)
         )
-
-    def get_np_column(self, column: Column) -> np.ndarray:
-        arr = self.get_pa_column(column)
-        return self._arrow_array_to_numpy(arr)
-
-    def get_np_column_by_index(self, index: int) -> np.ndarray:
-        arr = self.get_pa_column_by_index(index)
-        return self._arrow_array_to_numpy(arr)
 
     def get_np_column_by_name(self, column_name: str) -> np.ndarray:
         arr = self.get_pa_column_by_name(column_name)
         return self._arrow_array_to_numpy(arr)
 
-    def take(self, indices: List[int]) -> 'ArrowTable':
-        """
-        Select rows with provided indices and return a new Table.
-        """
-        return ArrowTable(self._table.take(indices))
-
-    def take_in_place(self, indices: List[int]) -> None:
-        """
-        Select rows with provided indices and replace current table
-        with the result.
-        """
-        self._table = self._table.take(indices)
-
-    def take_from_column(self,
-                         column_name: str,
-                         indices: List[int]) -> PyArrowArray:
-        """
-        Return a column with indices selected.
-        """
-        col: pa.ChunkedArray = self.get_pa_column_by_name(column_name)
-        return col.take(indices)
-
-    def take_pylist_from_column(self,
-                                column_name: str,
-                                indices: List[int]) -> List:
-        return self.take_from_column(column_name, indices).to_pylist()
-
-    def apply_bitmask(self, bitmask: Iterable[bool]) -> None:
-        self._table = self._table.filter(bitmask)
-
-    def slice(self, length: int, offset: int = 0) -> pa.Table:
-        return self._table.slice(offset, length)
-
-    def replace_with_slice(self, length: int, offset: int = 0) -> None:
-        self._table = self.slice(length, offset)
-
-    def add_column(self, name: str, column: AnyArrayLike) -> None:
-        if name in self._table.schema.names:
-            raise ValueError(f'Column name {name} already exists')
-        else:
-            self._table = self._table.append_column(name, [column])
-
-    def drop_columns(self, column_names: Iterable[str]) -> None:
-        self._table = self._table.drop(column_names)
-
-    def retain_columns(self,
-                       n_columns: int,
-                       new_column_names: Tuple[str, ...] = None) -> None:
-        """
-        Retain only n leading columns in the table.
-        """
-        if n_columns < self._table.num_columns:
-            self._table = self._table.drop(
-                self._table.schema.names[n_columns:]
-            )
-
-        if new_column_names:
-            self._table = self._table.rename_columns(new_column_names)
-
-    def replace_columns(self,
-                        columns: Tuple[Iterable],
-                        column_names: Tuple[str, ...] = None) -> None:
-        """
-        Replace the table with a new table constructed from columns.
-        """
-        if column_names is None:
-            column_names = self._table.schema.names[:len(columns)]
-        self._new_table(columns, column_names)
+    def slice(self, length: int, offset: int = 0) -> 'ArrowTable':
+        return ArrowTable(
+            self._table.slice(offset, length)
+        )
 
     def rename_columns(self, column_names: List[str]) -> None:
         self._table = self._table.rename_columns(column_names)
 
     def to_pandas(self) -> 'pd.DataFrame':
         return self._table.to_pandas()
-
-    def clone(self) -> 'ArrowTable':
-        return ArrowTable(self._table.slice())
 
     def _ensure_non_empty_col_names(self):
         unnamed_count = 0
@@ -183,11 +105,6 @@ class ArrowTable:
                 new_names.append(col_name)
         if unnamed_count:
             self.rename_columns(new_names)
-
-    def _new_table(self,
-                   columns: Tuple[Iterable],
-                   column_names: Tuple[str, ...]) -> None:
-        self._table = pa.Table.from_arrays(columns, names=column_names)
 
     @staticmethod
     def _arrow_array_to_numpy(array: PyArrowArray) -> np.ndarray:
@@ -215,3 +132,9 @@ class ArrowTable:
             np_arr = np_arr.astype('U')
 
         return np_arr
+
+    @staticmethod
+    def from_batches(batches: Iterable[pa.RecordBatch]):
+        if not batches:
+            return ArrowTable(pa.Table.from_arrays([], []))
+        return ArrowTable(pa.Table.from_batches(batches))

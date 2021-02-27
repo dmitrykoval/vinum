@@ -268,8 +268,8 @@ class TestSyntaxTree:
         expr = query_ast.where_condition
         self._test_expression(expr, sql_operator, 2)
         _test_column(expr.arguments[0], 'tip')
-        for arg1, arg2 in zip(expr.arguments[1], args):
-            assert arg1.value == arg2
+        for arg1, arg2 in zip(expr.arguments[1].value, args):
+            assert arg1 == arg2
 
     @pytest.mark.parametrize("query, sql_operator, args", (
             ("select * from t where tip between 1 and 10",
@@ -368,7 +368,7 @@ class TestSyntaxTree:
                               1,
                               function_name='count')
 
-        assert query_ast.is_group_by() is True
+        assert query_ast.is_aggregate() is True
         assert query_ast.group_by is not None
         assert len(query_ast.group_by) == 2
 
@@ -399,7 +399,7 @@ class TestSyntaxTree:
                               1,
                               function_name='count')
 
-        assert query_ast.is_group_by() is True
+        assert query_ast.is_aggregate() is True
         assert query_ast.group_by is not None
         assert len(query_ast.group_by) == 2
 

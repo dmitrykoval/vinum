@@ -6,6 +6,8 @@ from vinum.util.util import (
     TREE_INDENT_SYMBOL,
     find_all_columns_recursively,
     append_flat,
+    is_expression,
+    is_literal,
 )
 from vinum.util.tree_print import RecursiveTreePrint
 
@@ -112,7 +114,7 @@ class HasColumnName:
         pass
 
 
-class Literal(HasAlias, RecursiveTreePrint):
+class Literal(HasAlias, HasColumnName, RecursiveTreePrint):
     """
     Generic literal.
 
@@ -145,6 +147,9 @@ class Literal(HasAlias, RecursiveTreePrint):
 
     def get_alias(self) -> Optional[str]:
         return self._alias
+
+    def get_column_name(self) -> str:
+        return str(id(self))
 
     def str_lines_repr(self, indent_level: int) -> Tuple[str, ...]:
         return tuple((
@@ -213,7 +218,7 @@ class Column(HasAlias, HasColumnName, RecursiveTreePrint):
         return hash(self._name)
 
 
-class Expression(HasAlias, RecursiveTreePrint):
+class Expression(HasAlias, HasColumnName, RecursiveTreePrint):
     """
     SQL Expression.
 
@@ -250,6 +255,9 @@ class Expression(HasAlias, RecursiveTreePrint):
     @property
     def arguments(self) -> Tuple['QueryBaseType', ...]:
         return self._arguments
+
+    def set_arguments(self, arguments: Tuple['QueryBaseType', ...]) -> None:
+        self._arguments = arguments
 
     @property
     def function_name(self) -> Optional[str]:
@@ -317,13 +325,7 @@ class Expression(HasAlias, RecursiveTreePrint):
         lines.append(operator_line)
 
         for arg in self._arguments:
-            if isinstance(arg, Iterable):
-                lines.append(f'{self._level_indent_string(indent_level + 1)}[')
-                for list_item in arg:
-                    lines.extend(list_item.str_lines_repr(indent_level + 2))
-                lines.append(f'{self._level_indent_string(indent_level + 1)}]')
-            else:
-                lines.extend(arg.str_lines_repr(indent_level + 1))
+            lines.extend(arg.str_lines_repr(indent_level + 1))
 
         lines.append('')
         return tuple(lines)
@@ -360,8 +362,8 @@ class Query:
 
     Parameters
     ----------
-    table : ArrowTable
-        Arrow Table.
+    schema : pa.Schema
+        Schema.
     select_expressions : Tuple['QueryBaseType', ...]
         SELECT clause expressions.
     distinct : bool
@@ -382,8 +384,9 @@ class Query:
         LIMIT .., OFFSET.
     """
     def __init__(self,
-                 table: 'ArrowTable',
+                 schema: 'pa.Schema',
                  select_expressions: Tuple['QueryBaseType', ...],
+                 is_aggregate: bool,
                  distinct: bool,
                  where_condition: Optional[Expression],
                  group_by: Tuple['QueryBaseType', ...],
@@ -393,9 +396,10 @@ class Query:
                  limit: Optional[int],
                  offset: int,
                  ):
-        self.table: 'ArrowTable' = table
+        self.schema: 'pa.Schema' = schema
         self.select_expressions: Tuple['QueryBaseType', ...] = \
             select_expressions
+        self._is_aggregate: bool = is_aggregate
         self.distinct: bool = distinct
         self.where_condition: Optional[Expression] = where_condition
         self.group_by: Tuple['QueryBaseType', ...] = group_by
@@ -405,16 +409,16 @@ class Query:
         self.limit: Optional[int] = limit
         self.offset: int = offset
 
-    def is_group_by(self) -> bool:
+    def is_aggregate(self) -> bool:
         """
-        Return True if query has GROUP BY defined.
+        Return True if query is aggregate.
 
         Returns
         -------
         bool
-            True if query has a GROUP BY clause.
+            True if query query is aggregate.
         """
-        return bool(self.group_by)
+        return self._is_aggregate or self.distinct
 
     def has_limit(self) -> bool:
         """
@@ -467,7 +471,7 @@ class Query:
             c.get_column_name() for c in self.get_all_used_columns()
         )
 
-    def get_select_plus_post_processing_columns(
+    def get_select_plus_post_agg_cols(
             self) -> Tuple['QueryBaseType', ...]:
         """
         Return all the SELECT expressions, plus all the Columns
@@ -489,6 +493,17 @@ class Query:
                     columns.append(col)
                     cols_set.add(col)
         return tuple(columns)
+
+    def has_count_star(self):
+        for expr in self.select_expressions:
+            if (is_expression(expr)
+                and expr.function_name
+                and expr.function_name.lower() == 'count'
+                and len (expr.arguments) == 1
+                and is_literal(expr.arguments[0])
+                and expr.arguments[0].value == '*'
+            ):
+                return True
 
     def __str__(self):
         str_repr = 'Query syntax tree: \n'

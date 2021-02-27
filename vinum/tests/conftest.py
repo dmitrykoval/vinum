@@ -2,9 +2,10 @@ import pyarrow
 import pytest
 
 import numpy as np
+import requests
 
 from vinum.arrow.arrow_table import ArrowTable
-from vinum.core.table import Table
+from vinum.api.table import Table
 from vinum.parser.parser import parser_factory
 from vinum.parser.query import Column, Literal
 
@@ -101,7 +102,8 @@ def create_null_test_data():
 
 
 def create_query_ast(query, test_arrow_table):
-    return parser_factory(query, test_arrow_table).generate_query_tree()
+    return parser_factory(query,
+                          test_arrow_table.get_schema()).generate_query_tree()
 
 
 def _test_column(column, name, alias=None):
@@ -125,7 +127,7 @@ def _test_literal(literal, value_var, alias=None):
 def _assert_tables_equal(actual, expected):
     assert actual is not None
 
-    arrow_table: ArrowTable = actual._arrow_table
+    arrow_table: ArrowTable = actual._arrow_table.combine_chunks()
     assert arrow_table is not None
     assert arrow_table.num_columns == len(expected.keys())
     assert arrow_table.num_rows == len(next(iter(expected.values())))
@@ -134,7 +136,7 @@ def _assert_tables_equal(actual, expected):
         expected_col = np.array(expected[column_name])
         result_col = arrow_table.get_np_column_by_name(column_name)
         if np.issubdtype(result_col.dtype, np.float):
-            assert np.allclose(result_col, expected_col)
+            assert np.allclose(result_col, expected_col, equal_nan=True)
         else:
             assert np.array_equal(result_col, expected_col)
 
@@ -149,3 +151,26 @@ def test_arrow_table():
 def test_table_column_names():
     column_names, _, __ = create_test_data()
     return column_names
+
+
+def download_save(url, tmpdir_factory):
+    res = requests.get(url)
+    res.raise_for_status()
+
+    fname = url.split('/')[-1]
+    tmp_datafile = str(tmpdir_factory.mktemp("data").join(fname))
+    with open(tmp_datafile, 'wb') as f:
+        f.write(res.content)
+
+    return tmp_datafile
+
+
+@pytest.fixture(scope="session")
+def csv_datafile(tmpdir_factory):
+    url = 'https://raw.githubusercontent.com/dmitrykoval/vinum-test-data/main/data/taxi.csv.bz2'
+    return download_save(url, tmpdir_factory)
+
+@pytest.fixture(scope="session")
+def parquet_datafile(tmpdir_factory):
+    url = 'https://raw.githubusercontent.com/dmitrykoval/vinum-test-data/main/data/taxi.parquet'
+    return download_save(url, tmpdir_factory)

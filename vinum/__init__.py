@@ -17,19 +17,24 @@ if missing_dependencies:
     )
 del hard_dependencies, dependency, missing_dependencies
 
+import vinum_lib
+if vinum_lib.import_pyarrow() != 0:
+    raise StandardError('Failed to initialize pyarrow C++ bindings.')
 
-from vinum.core.functions import (   # noqa: F401
+from vinum.core.udf import (   # noqa: F401
     register_python,
     register_numpy,
 )
 
 from vinum.io.arrow import (  # noqa: F401
+    stream_csv,
     read_csv,
     read_json,
     read_parquet,
 )
 
-from vinum.core.table import Table  # noqa: F401
+from vinum.api.table import Table  # noqa: F401
+from vinum.api.stream_reader import StreamReader  # noqa: F401
 
 
 from ._version import get_versions
@@ -46,3 +51,14 @@ Python data analysis tools such as `Numpy <https://numpy.org/>`_,
 the SQL language. Key features include native support of
 vectorized Numpy and Python functions as UDFs in SQL queries.
 """
+
+_batch_size = 10000
+
+
+def get_batch_size():
+    return _batch_size
+
+
+def set_batch_size(batch_size: int):
+    _batch_size = batch_size
+

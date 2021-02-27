@@ -4,7 +4,7 @@ import pytest
 
 import numpy as np
 
-from vinum.core.functions import register_python, register_numpy
+from vinum.core.udf import register_python, register_numpy
 from vinum.tests.conftest import (
     create_test_data,
     create_null_test_data,
@@ -307,7 +307,8 @@ queries = (
      }),
 
     (test_table,
-     'select count(*), sum(total), vendor_id from t group by vendor_id',
+     'select count(*), sum(total), vendor_id from t group by vendor_id '
+     'order by vendor_id',
      {
          'count': (2, 1, 1),
          'sum': (35.83, 143.15, 53.1),
@@ -366,14 +367,14 @@ queries = (
 
 groupby_queries = (
     (test_groupby_table,
-     'select vendor_id from t group by vendor_id',
+     'select vendor_id from t group by vendor_id order by vendor_id',
      {
          'vendor_id': (1, 2, 3)
      }),
 
     (test_groupby_table,
      ('select vendor_id, count(*), min(tax), max(tip), sum(total), '
-      ' avg(total), std(total) from t group by vendor_id'),
+      ' avg(total) from t group by vendor_id order by vendor_id'),
      {
          'vendor_id': (1, 2, 3),
          'count': (5, 2, 1),
@@ -381,42 +382,44 @@ groupby_queries = (
          'max': (11, 5.34, 5.3),
          'sum': (105.06, 156.3, 53.1),
          'avg': (21.012, 78.15, 53.1),
-         'std': (15.1721, 65.0, 0.0)
      }),
 
     (test_groupby_table,
-     ('select city_from, int(total) % 7, count(*) '
-      'from t group by city_from, int(total) % 7'),
+     ('select city_from, int(total) % 7 as mod, count(*) '
+      'from t group by city_from, int(total) % 7 '
+      'order by city_from, mod'),
      {
-         'city_from': ('Berlin', 'Munich', 'Riva', 'San Francisco',
-                       'Berlin', 'Munich'),
-         'col_0': (2, 3, 5, 4, 5, 6),
-         'count': (2, 1, 1, 1, 2, 1),
+         'city_from': ('Berlin', 'Berlin', 'Munich', 'Munich',
+                       'Riva', 'San Francisco'),
+         'mod': (2, 5, 3, 6, 5, 4),
+         'count': (2, 2, 1, 1, 1, 1),
      }),
 
     (test_groupby_table,
-     'select city_from, city_to, count(*) from t group by city_from, city_to',
+     ('select city_from, city_to, count(*) from t group by city_from, city_to '
+      'order by city_from, count(*)'),
      {
-         'city_from': ('Berlin', 'Munich', 'Riva', 'San Francisco', 'Berlin'),
-         'city_to': ('Munich', 'Riva', 'Naples', 'Naples', 'Riva'),
-         'count': (3, 2, 1, 1, 1),
+         'city_from': ('Berlin', 'Berlin', 'Munich', 'Riva', 'San Francisco'),
+         'city_to': ('Riva', 'Munich', 'Riva', 'Naples', 'Naples'),
+         'count': (1, 3, 2, 1, 1),
      }),
 
     (test_groupby_table,
      'select city_from, int(np.sin(lat) * 100000) % 11 as grp_exp, '
      ' count(*), min(tax) '
      'from t '
-     'group by city_from, grp_exp',
+     'group by city_from, grp_exp '
+     'order by city_from, min(tax)',
      {
-         'city_from': ('Berlin', 'Munich', 'Riva', 'San Francisco', 'Berlin'),
-         'grp_exp': (6, 8, 5, 2, 5),
-         'count': (2, 2, 1, 1, 2),
-         'min': (0.43, 2.0, 1.59, 1.69, 1.59),
+         'city_from': ('Berlin', 'Berlin', 'Munich', 'Riva', 'San Francisco'),
+         'grp_exp': (6, 5, 8, 5, 2),
+         'count': (2, 2, 2, 1, 1),
+         'min': (0.43, 1.59, 2.0, 1.59, 1.69),
      }),
 
     (test_groupby_table,
      ('select city_from, count(*), count(timestamp % 2 < 1) from t '
-      'group by city_from'),
+      'group by city_from order by city_from'),
      {
          'city_from': ('Berlin', 'Munich', 'Riva', 'San Francisco'),
          'count': (4, 2, 1, 1),
@@ -425,7 +428,7 @@ groupby_queries = (
 
     (test_groupby_table,
      ('select city_from, sum(tax), sum((1-total)*(2+tax)*(1-tip)) '
-      'from t group by city_from'),
+      'from t group by city_from order by city_from'),
      {
          'city_from': ('Berlin', 'Munich', 'Riva', 'San Francisco'),
          'sum': (4.04, 4.0, 1.59, 1.69),
@@ -434,15 +437,16 @@ groupby_queries = (
 
     (test_groupby_table,
      ('select city_from, count(*) from t '
-      'where tax > 1 group by city_from, city_to'),
+      'where tax > 1 group by city_from, city_to order by city_from, city_to'),
      {
-         'city_from': ('Munich', 'Riva', 'San Francisco', 'Berlin', 'Berlin'),
-         'count': (2, 1, 1, 1, 1),
+         'city_from': ('Berlin', 'Berlin', 'Munich', 'Riva', 'San Francisco'),
+         'count': (1, 1, 2, 1, 1),
      }),
 
     (test_groupby_table,
      'select city_from, sum(tax), sum((1-total)*(2+tax)*(1-tip)) from t '
-     'group by city_from having sum((1-total)*(2+tax)*(1-tip)) > 1200',
+     'group by city_from having sum((1-total)*(2+tax)*(1-tip)) > 1200 '
+     'order by city_from',
      {
          'city_from': ('Berlin', 'Munich'),
          'sum': (4.04, 4.0),
@@ -451,7 +455,8 @@ groupby_queries = (
 
     (test_groupby_table,
      'select city_from, sum(tax), sum((1-total)*(2+tax)*(1-tip)) as agg_col '
-     'from t group by city_from having agg_col > 827',
+     'from t group by city_from having agg_col > 827 '
+     'order by city_from',
      {
          'city_from': ('Berlin', 'Munich', 'Riva'),
          'sum': (4.04, 4.0, 1.59),
@@ -460,7 +465,8 @@ groupby_queries = (
 
     (test_groupby_table,
      'select city_from, sum(tax), sum((1-total)*(2+tax)*(1-tip)) as agg_col '
-     'from t group by city_from having agg_col > 827 and sum(tax) > 1.6',
+     'from t group by city_from having agg_col > 827 and sum(tax) > 1.6 '
+     'order by city_from',
      {
          'city_from': ('Berlin', 'Munich'),
          'sum': (4.04, 4.0),
@@ -491,11 +497,12 @@ groupby_queries = (
      ' count(*), min(tax) '
      'from t '
      'group by city_from, grp_exp '
-     'having grp_exp between 4 and 7',
+     'having grp_exp between 4 and 7 '
+     'order by city_from, min(tax)',
      {
-         'city_from': ('Berlin', 'Riva', 'Berlin'),
+         'city_from': ('Berlin', 'Berlin', 'Riva'),
          'grp_exp': (6, 5, 5),
-         'count': (2, 1, 2),
+         'count': (2, 2, 1),
          'min': (0.43, 1.59, 1.59),
      }),
 
@@ -511,7 +518,8 @@ groupby_queries = (
 
     (test_groupby_table,
      "select city_from from t group by city_from, city_to "
-     "having city_to='Naples'",
+     "having city_to='Naples' "
+     "order by city_from",
      {
          'city_from': ('Riva', 'San Francisco'),
      }),
@@ -526,7 +534,8 @@ groupby_queries = (
 
     (test_groupby_table,
      "select vendor_id, count(*) from t "
-     "group by vendor_id having vendor_id < 3",
+     "group by vendor_id having vendor_id < 3 "
+     "order by vendor_id",
      {
          'vendor_id': (1, 2),
          'count': (5, 2),
@@ -542,7 +551,8 @@ groupby_queries = (
 
     (test_groupby_table,
      "select vendor_id, count(*) from t "
-     "group by vendor_id having count(*) > 1",
+     "group by vendor_id having count(*) > 1 "
+     "order by vendor_id",
      {
          'vendor_id': (1, 2),
          'count': (5, 2),
@@ -550,7 +560,8 @@ groupby_queries = (
 
     (test_groupby_table,
      "select vendor_id, sum(tax+tip) from t "
-     "group by vendor_id having sum(tax+tip) * 2 > 5+9",
+     "group by vendor_id having sum(tax+tip) * 2 > 5+9 "
+     "order by vendor_id",
      {
          'vendor_id': (1, 2),
          'sum': (40.03, 13.68),
@@ -575,9 +586,6 @@ groupby_queries = (
             min(total) as min_total,
             max(total) as max_total,
             avg(total) as avg_total, 
-            std(total) as std_total, 
-            var(total) as var_total, 
-            median(total) as median_total, 
             sum(total) as sum_total 
         from t 
         group by city_from 
@@ -595,9 +603,6 @@ groupby_queries = (
          'min_total': (2.43, 13.15, 33.4, 53.1),
          'max_total': (33.40, 143.15, 33.4, 53.1),
          'avg_total': (17.915, 78.15, 33.4, 53.1),
-         'std_total': (15.485, 65, 0.0, 0.0),
-         'var_total': (239.785225, 4225.0, 0.0, 0.0),
-         'median_total': (17.915, 78.15, 33.4, 53.1),
          'sum_total': (71.66, 156.2999, 33.4, 53.1),
      }),
 
@@ -1159,13 +1164,13 @@ null_data = (
     (test_table_null,
      "select id from t where total is null order by id",
      {
-         'id': (1, 5, 6, 8)
+         'id': (1, 6)
      }),
 
     (test_table_null,
      "select id from t where total is not null order by id",
      {
-         'id': (2, 3, 4, 7)
+         'id': (2, 3, 4, 5, 7, 8)
      }),
 
     (test_table_null,
@@ -1213,9 +1218,9 @@ null_data = (
      }),
 
     (test_table_null,
-     "select id from t order by total",
+     "select id from t order by total, id",
      {
-         'id': (3, 7, 4, 2, 1, 5, 6, 8)
+         'id': (3, 7, 4, 2, 5, 8, 1, 6)
      }),
 
     (test_table_null,
@@ -1243,28 +1248,23 @@ null_data = (
             min(total) as min_total,
             max(total) as max_total,
             avg(total) as avg_total, 
-            std(total) as std_total, 
-            var(total) as var_total, 
-            median(total) as median_total, 
             sum(total) as sum_total 
-        from t group by city_from 
+        from t group by city_from  
+        order by city_from
      """,  # noqa: W291
      {
-         'city_from': (None, 'Munich', 'San Francisco', 'Berlin'),
-         'cnt_all': (2, 2, 1, 3),
-         'cnt_total': (1, 1, 1, 1),
+         'city_from': ('Berlin', 'Munich', 'San Francisco', None),
+         'cnt_all': (3, 2, 1, 2),
+         'cnt_total': (3, 1, 1, 1),
          'cnt_name': (2, 1, 1, 2),
-         'cnt_date_str': (1, 2, 1, 2),
-         'cnt_bool': (2, 1, 0, 1),
-         'cnt_datetime': (1, 2, 1, 2),
-         'cnt_timestamp': (2, 2, 1, 1),
-         'min_total': (33.40, 143.15, 53.1, 33.4),
-         'max_total': (33.40, 143.15, 53.1, 33.4),
-         'avg_total': (33.40, 143.15, 53.1, 33.4),
-         'std_total': (0.0, 0.0, 0.0, 0.0),
-         'var_total': (0.0, 0.0, 0.0, 0.0),
-         'median_total': (33.40, 143.15, 53.1, 33.4),
-         'sum_total': (33.40, 143.15, 53.1, 33.4),
+         'cnt_date_str': (2, 2, 1, 1),
+         'cnt_bool': (1, 1, 0, 2),
+         'cnt_datetime': (2, 2, 1, 1),
+         'cnt_timestamp': (1, 2, 1, 2),
+         'min_total': (np.nan, 143.15, 53.1, 33.4),
+         'max_total': (np.nan, 143.15, 53.1, 33.4),
+         'avg_total': (np.nan, 143.15, 53.1, 33.4),
+         'sum_total': (np.nan, 143.15, 53.1, 33.4),
      }),
 
     (test_table_null,
@@ -1296,14 +1296,14 @@ null_data = (
     (test_table_null,
      "select upper(city_from) res from t order by id",
      {
-         'res': ('NONE', 'MUNICH', 'NONE', 'SAN FRANCISCO',
+         'res': (None, 'MUNICH', None, 'SAN FRANCISCO',
                  'BERLIN', 'MUNICH', 'BERLIN', 'BERLIN'),
      }),
 
     (test_table_null,
      "select lower(city_from) res from t order by id",
      {
-         'res': ('none', 'munich', 'none', 'san francisco',
+         'res': (None, 'munich', None, 'san francisco',
                  'berlin', 'munich', 'berlin', 'berlin'),
      }),
 
@@ -1320,31 +1320,31 @@ null_data = (
      }),
 
     (test_table_null,
-     "select id from t order by is_vendor",
+     "select id from t order by float(is_vendor)",
      {
          'id': (3, 1, 2, 5, 4, 6, 7, 8)
      }),
 
     (test_table_null,
-     "select id from t order by is_vendor desc, lng desc",
+     "select id from t order by float(is_vendor) desc, lng desc",
      {
          'id': (5, 1, 2, 3, 4, 7, 8, 6)
      }),
 
     (test_table_null,
-     "select id from t order by name, is_vendor, lng",
+     "select id from t order by name, float(is_vendor), lng",
      {
          'id': (1, 8, 6, 3, 7, 4, 2, 5)
      }),
 
     (test_table_null,
-     "select id from t order by name desc, is_vendor desc, lng desc",
+     "select id from t order by name desc, float(is_vendor) desc, lng desc",
      {
          'id': (3, 4, 7, 6, 1, 8, 5, 2)
      }),
 
     (test_table_null,
-     "select id from t order by name desc, is_vendor desc, np.log(lng) desc",
+     "select id from t order by name desc, float(is_vendor) desc, np.log(lng) desc",
      {
          'id': (3, 4, 7, 6, 1, 8, 5, 2)
      }),
@@ -1370,13 +1370,11 @@ class TestQueryResults:
         _assert_tables_equal(actual_tbl, expected_result)
 
     @pytest.mark.parametrize(
-        ("source_tbl, udf_name, udf, is_aggregate, "
-         "is_python_udf, query, expected_result"),
+        "source_tbl, udf_name, udf, is_python_udf, query, expected_result",
         (
                 pytest.param(test_groupby_table,
                              'cube',
                              lambda x: x ** 3,
-                             False,
                              True,
                              "SELECT cube(id) from t ORDER BY cube(id) DESC",
                              {
@@ -1386,16 +1384,33 @@ class TestQueryResults:
                              'cube_np',
                              lambda x: np.power(x, 3),
                              False,
-                             False,
                              ("SELECT cube_np(id) from t "
                               "ORDER BY cube_np(id) DESC"),
                              {
                                  'cube_np': (512, 343, 216, 125, 64, 27, 8, 1),
                              }),
+        )
+    )
+    def test_udfs(self,
+                  source_tbl,
+                  udf_name,
+                  udf,
+                  is_python_udf,
+                  query,
+                  expected_result):
+        if is_python_udf:
+            register_python(udf_name, udf)
+        else:
+            register_numpy(udf_name, udf)
+        actual_tbl = source_tbl.sql(query)
+        _assert_tables_equal(actual_tbl, expected_result)
+
+    @pytest.mark.parametrize(
+        "source_tbl, udf_name, udf, is_python_udf, query, expected_result",
+        (
                 pytest.param(test_groupby_table,
                              'corr',
                              lambda x, y: np.corrcoef(x, y)[0, 1],
-                             True,
                              False,
                              ("SELECT city_to, corr(tip, tax) from t "
                               "GROUP BY city_to "
@@ -1406,20 +1421,19 @@ class TestQueryResults:
                              }),
         )
     )
-    def test_udfs(self,
+    def test_udfs_raising(self,
                   source_tbl,
                   udf_name,
                   udf,
-                  is_aggregate,
                   is_python_udf,
                   query,
                   expected_result):
         if is_python_udf:
             register_python(udf_name, udf)
         else:
-            register_numpy(udf_name, udf, is_aggregate)
-        actual_tbl = source_tbl.sql(query)
-        _assert_tables_equal(actual_tbl, expected_result)
+            register_numpy(udf_name, udf)
+        with pytest.raises(Exception):
+            actual_tbl = source_tbl.sql(query)
 
     @pytest.mark.parametrize(
         "source_tbl, is_python_udf",
@@ -1526,7 +1540,8 @@ class TestQueryResults:
         test_execution_time_tolerance = np.timedelta64(5, 's')  # in seconds
         actual_tbl = source_tbl.sql(f"select {function}('now') from t")
 
-        dt_col = actual_tbl._arrow_table.get_np_column_by_name(function)
+        dt_col = (actual_tbl._arrow_table.combine_chunks()
+                  .get_np_column_by_name(function))
         assert len(dt_col) == 1
         actual_now = dt_col[0]
         expected_now = np.datetime64('now', unit)
