@@ -3,6 +3,7 @@
 
 #include "huge_int.h"
 
+#include <assert.h>
 #include <cmath>
 #include <iostream>
 
