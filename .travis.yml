@@ -61,10 +61,10 @@ before_install:
     sudo -H $PIP install --upgrade pip
 
 install:
-  - python3 -m pip install -r requirements-dev.txt
+  - $PIP install -r requirements-dev.txt
 before_script:
-  - python3 --version
-  - python3 setup.py build_ext --inplace
+  - $PY --version
+  - $PY setup.py build_ext --inplace
 script:
   - pytest --cov=vinum vinum/tests
 after_success:
