@@ -57,7 +57,7 @@ before_install:
   - |
     sudo apt-add-repository 'deb https://apt.kitware.com/ubuntu/ xenial main'
     sudo apt-get update
-    sudo apt-get install cmake
+    sudo apt-get install cmake --allow-unauthenticated
   - |
     PY=python
     if [ "$TRAVIS_OS_NAME" = "linux" ]; then
