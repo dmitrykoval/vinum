@@ -2,12 +2,12 @@ language: cpp
 
 addons:
   apt:
-    packages: &core_build
-    - g++-5
-    - ninja-build
+    packages:
+      - g++-7
+      - ninja-build
   homebrew:
     packages:
-    - pyenv
+      - pyenv
     update: true
 
 matrix:
@@ -17,30 +17,30 @@ matrix:
     env: PYTHON=3.7
     dist: xenial
     services:
-    - docker
+      - docker
     addons:
       apt:
         update: true
         sources:
-        - ubuntu-toolchain-r-test
-        - deadsnakes
+          - ubuntu-toolchain-r-test
+          - deadsnakes
         packages:
-        - *core_build
-        - python3.7
+          - g++-7
+          - python3.7
   - os: linux
     env: PYTHON=3.8
     dist: xenial
     services:
-    - docker
+      - docker
     addons:
       apt:
         update: true
         sources:
-        - ubuntu-toolchain-r-test
-        - deadsnakes
+          - ubuntu-toolchain-r-test
+          - deadsnakes
         packages:
-        - *core_build
-        - python3.8
+          - g++-7
+          - python3.8
 
 before_install:
   - |
