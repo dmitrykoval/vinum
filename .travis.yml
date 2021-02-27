@@ -50,7 +50,6 @@ before_install:
   - |
     PY=python
     if [ "$TRAVIS_OS_NAME" = "linux" ]; then
-      export CXX=g++-5 CC=gcc-5;
       if [ $(echo "$PYTHON" | grep "^3\.") ]; then
         PY=python${PYTHON}
         curl https://bootstrap.pypa.io/get-pip.py | sudo -H $PY
