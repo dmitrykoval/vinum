@@ -15,4 +15,5 @@ add_library(vinum
         operators/table_batch_reader.cpp)
 
 target_include_directories(vinum PRIVATE ${ARROW_INCLUDE_DIR})
+target_link_directories(vinum PRIVATE ${ARROW_LIB_DIR})
 target_link_libraries(vinum PRIVATE arrow_shared)
