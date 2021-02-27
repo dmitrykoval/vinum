@@ -56,14 +56,15 @@ before_install:
       pyenv install $PYTHON
       PY=/Users/travis/.pyenv/versions/${PYTHON}/bin/python
     fi
+    echo "$PY"
     PIP="$PY -m pip"
     sudo -H $PIP install --upgrade pip
 
 install:
-  - pip install -r requirements-dev.txt
+  - python3 -m pip install -r requirements-dev.txt
 before_script:
-  - python --version
-  - python setup.py build_ext --inplace
+  - python3 --version
+  - python3 setup.py build_ext --inplace
 script:
   - pytest --cov=vinum vinum/tests
 after_success:
