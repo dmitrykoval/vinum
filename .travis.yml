@@ -1,9 +1,13 @@
 language: cpp
 
+compiler:
+  - clang
+  - gcc
+
 addons:
   apt:
     packages: &core_build
-    - g++-4.8
+    - g++-4.9
     - cmake
     - ninja-build
   homebrew:
