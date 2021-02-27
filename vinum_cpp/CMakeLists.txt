@@ -3,7 +3,7 @@ project(vinum)
 
 set(CMAKE_CXX_STANDARD 17)
 
-find_package(Arrow REQUIRED)
+#find_package(Arrow REQUIRED)
 
 include_directories(src)
 

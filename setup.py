@@ -84,6 +84,7 @@ class CMakeBuild(build_ext):
         cmake_args = [
             f"-DCMAKE_LIBRARY_OUTPUT_DIRECTORY={extdir}",
             f"-DCMAKE_BUILD_TYPE={cfg}",  # not used on MSVC, but no harm
+            f"-DARROW_INCLUDE_DIR={pa.get_include()}",
         ]
         build_args = [
             "--target",

@@ -13,4 +13,6 @@ add_library(vinum
         operators/aggregate/generic_hash_aggregate.cpp
         operators/sort/sort.cpp
         operators/table_batch_reader.cpp)
+
+target_include_directories(vinum PRIVATE /Users/dima/.pyenv/versions/3.8.3/lib/python3.8/site-packages/pyarrow/include)
 target_link_libraries(vinum PRIVATE arrow_shared)
