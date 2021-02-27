@@ -14,7 +14,6 @@ matrix:
   fast_finish: true
   include:
   - os: linux
-    env: PYTHON=3.7
     dist: xenial
     services:
       - docker
@@ -27,8 +26,10 @@ matrix:
         packages:
           - g++-7
           - python3.7
+    env:
+      - PYTHON=3.7
+      - MATRIX_EVAL="CC=gcc-7 && CXX=g++-7"
   - os: linux
-    env: PYTHON=3.8
     dist: xenial
     services:
       - docker
@@ -41,6 +42,9 @@ matrix:
         packages:
           - g++-7
           - python3.8
+    env:
+      - PYTHON=3.8
+      - MATRIX_EVAL="CC=gcc-7 && CXX=g++-7"
 
 before_install:
   - |
