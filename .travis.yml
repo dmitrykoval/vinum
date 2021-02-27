@@ -62,6 +62,7 @@ before_install:
 install:
   - pip install -r requirements-dev.txt
 before_script:
+  - python --version
   - python setup.py build_ext --inplace
 script:
   - pytest --cov=vinum vinum/tests
