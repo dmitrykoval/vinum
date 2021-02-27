@@ -4,7 +4,7 @@
 
 #include <arrow/api.h>
 
-#include <math.h>
+#include <cmath>
 
 using namespace std;
 
