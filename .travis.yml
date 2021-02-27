@@ -23,6 +23,8 @@ matrix:
     env:
       - PYTHON=3.7
       - MATRIX_EVAL="CC=gcc-7 && CXX=g++-7"
+      - CC=gcc-7
+      - CXX=g++-7
 
   - os: linux
     dist: xenial
@@ -44,6 +46,8 @@ matrix:
     env:
       - PYTHON=3.8
       - MATRIX_EVAL="CC=gcc-7 && CXX=g++-7"
+      - CC=gcc-7
+      - CXX=g++-7
 
 before_install:
   - |
