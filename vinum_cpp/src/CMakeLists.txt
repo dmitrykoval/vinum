@@ -2,7 +2,7 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 
 SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}")
 
-add_library(vinum
+add_library(vinum_cpp
         common/huge_int.cpp
         common/array_iterators.cpp
         operators/aggregate/agg_func_factory.cpp
@@ -14,6 +14,6 @@ add_library(vinum
         operators/sort/sort.cpp
         operators/table_batch_reader.cpp)
 
-target_include_directories(vinum PRIVATE ${ARROW_INCLUDE_DIR})
-target_link_directories(vinum PRIVATE ${ARROW_LIB_DIR})
-target_link_libraries(vinum PRIVATE arrow_shared)
+target_include_directories(vinum_cpp PRIVATE ${ARROW_INCLUDE_DIR})
+target_link_directories(vinum_cpp PRIVATE ${ARROW_LIB_DIR})
+target_link_libraries(vinum_cpp PRIVATE arrow_shared)

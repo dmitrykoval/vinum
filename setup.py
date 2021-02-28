@@ -1,11 +1,12 @@
 import os
+import sys
+import sysconfig
 import subprocess
 
-from setuptools import setup, find_packages, Extension
+from setuptools import setup, find_packages
 
 from pybind11.setup_helpers import Pybind11Extension, build_ext
 
-import numpy as np
 import pyarrow as pa
 
 import versioneer
@@ -41,36 +42,26 @@ PLAT_TO_CMAKE = {
     "win-arm32": "ARM",
     "win-arm64": "ARM64",
 }
+VINUM_CPP_LIB_NAME = 'vinum_cpp'
 
 
 # CMakeExtension example taken from:
 # https://github.com/pybind/cmake_example
-
-class CMakeExtension(Extension):
-    def __init__(self, name, sourcedir="", target_name="",):
-        Extension.__init__(self, name, sources=[])
-        self.sourcedir = os.path.abspath(sourcedir)
-        self.target_name = target_name
+class CMakeExtension(Pybind11Extension):
+    def __init__(self, name, source, *args, **kwargs):
+        Pybind11Extension.__init__(self, name, source, *args, **kwargs)
+        self.cmake_sourcedir = os.path.abspath(kwargs['cmake_sourcedir'])
+        self.cmake_target_name = kwargs['cmake_target_name']
 
 
 class CMakeBuild(build_ext):
     def build_extension(self, ext):
-        if isinstance(ext, Pybind11Extension):
-            if ext.libdirs:
-                for ldir in ext.libdirs:
-                    ext.library_dirs.append(
-                        os.path.abspath(
-                            os.path.join(self.build_temp, ldir)
-                        )
-                    )
-            super().build_extension(ext)
-            return
-
         extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
 
         # required for auto-detection of auxiliary "native" libs
         if not extdir.endswith(os.path.sep):
             extdir += os.path.sep
+        print(f'**** LIUBDR to write: {extdir}')
 
         cfg = "Debug" if self.debug else "Release"
 
@@ -83,6 +74,9 @@ class CMakeBuild(build_ext):
         # from Python.
         cmake_args = [
             f"-DCMAKE_LIBRARY_OUTPUT_DIRECTORY={extdir}",
+            f"-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY={extdir}",
+            # f"-DCMAKE_SHARED_LINKER_FLAGS={ext.extra_link_args}",
+            # f"-DCMAKE_STATIC_LINKER_FLAGS={ext.extra_link_args}",
             f"-DCMAKE_BUILD_TYPE={cfg}",  # not used on MSVC, but no harm
             f"-DARROW_INCLUDE_DIR={pa.get_include()}",
             f"-DARROW_LIB_DIR={pa.get_library_dirs()}",
@@ -90,7 +84,7 @@ class CMakeBuild(build_ext):
         ]
         build_args = [
             "--target",
-            ext.target_name
+            ext.cmake_target_name
         ]
 
         if self.compiler.compiler_type != "msvc":
@@ -136,47 +130,104 @@ class CMakeBuild(build_ext):
             os.makedirs(self.build_temp)
 
         subprocess.check_call(
-            ["cmake", ext.sourcedir] + cmake_args, cwd=self.build_temp
+            ["cmake", ext.cmake_sourcedir] + cmake_args, cwd=self.build_temp
         )
         subprocess.check_call(
             ["cmake", "--build", "."] + build_args, cwd=self.build_temp
         )
 
-
-vinum_ext = Pybind11Extension(
-    "vinum_lib",
-    ["vinum/core/vinum_lib.cpp"],
-    # Example: passing in the version to the compiled code
-    define_macros=[('VERSION_INFO', VERSION)],
-)
-# Vinum dependecies for library only
-vinum_ext.include_dirs.append('vinum_cpp/src/operators/aggregate')
-vinum_ext.include_dirs.append('vinum_cpp/src/operators/sort')
-vinum_ext.include_dirs.append('vinum_cpp/src/operators')
-vinum_ext.include_dirs.append('vinum_cpp/src/')
-vinum_ext.libraries.append('vinum')
-vinum_ext.libdirs = ['src']
+        super().build_extension(ext)
 
 
-ext_modules = [
-    CMakeExtension("vinum_lib", sourcedir="vinum_cpp", target_name="vinum"),
-    vinum_ext,
+def _get_distutils_build_directory():
+    """
+    Returns the directory distutils uses to build its files.
+    We need this directory since we build extensions which have to link
+    other ones.
+    """
+    pattern = "lib.{platform}-{major}.{minor}"
+    return os.path.join('build', pattern.format(platform=sysconfig.get_platform(),
+                                                major=sys.version_info[0],
+                                                minor=sys.version_info[1]))
+
+extra_compile_args = []
+hidden_visibility_args = []
+include_dirs = [
+    pa.get_include(),
 ]
+library_dirs = [
+    _get_distutils_build_directory()
+]
+library_dirs.extend(pa.get_library_dirs())
 
-# Arrow and Numpy headers/libs for all the extensions
-for ext in ext_modules:
-    # The Numpy C headers are currently required
-    ext.include_dirs.append(np.get_include())
-    ext.include_dirs.append(pa.get_include())
-    ext.libraries.extend(pa.get_libraries())
-    ext.library_dirs.extend(pa.get_library_dirs())
+libraries = [
+    'arrow', 'arrow_python'
+]
+python_module_link_args = []
+base_library_link_args = []
 
-    if os.name == 'posix':
-        ext.extra_compile_args.append('-std=c++17')
+if sys.platform == 'darwin':
+    extra_compile_args.append('--std=c++17')
+    extra_compile_args.append('--stdlib=libc++')
+    extra_compile_args.append('-mmacosx-version-min=10.9')
+    hidden_visibility_args.append('-fvisibility=hidden')
 
-    # Try uncommenting the following line on Linux
-    # if you get weird linker errors or runtime crashes
-    # ext.define_macros.append(("_GLIBCXX_USE_CXX11_ABI", "0"))
+    from distutils import sysconfig
+    vars = sysconfig.get_config_vars()
+    vars['LDSHARED'] = vars['LDSHARED'].replace('-bundle', '')
+    python_module_link_args.append('-bundle')
+    # builder = build_ext.build_ext(Distribution())
+    # full_name = builder.get_ext_filename(VINUM_CPP_LIB_NAME)
+    # base_library_link_args.append('-Wl,-dylib_install_name,@loader_path/{}'.format(full_name))
+    # base_library_link_args.append('-dynamiclib')
+elif sys.platform == 'win32':
+    extra_compile_args.append('-DNOMINMAX')
+else:
+    extra_compile_args.append('--std=c++17')
+    hidden_visibility_args.append('-fvisibility=hidden')
+    python_module_link_args.append("-Wl,-rpath,$ORIGIN")
+
+
+def create_extensions():
+    extension_modules = []
+
+    # For now, assume that we build against bundled pyarrow releases.
+    if sys.platform == "win32":
+        pass
+    elif sys.platform == "darwin":
+        python_module_link_args.append('-Wl,-rpath,@loader_path/pyarrow')
+    else:
+        python_module_link_args.append("-Wl,-rpath,$ORIGIN/pyarrow")
+
+    cpp_lib_bindings = CMakeExtension(
+        "vinum_lib",
+        ["vinum/core/vinum_lib.cpp"],
+        cmake_sourcedir='vinum_cpp',
+        cmake_target_name=VINUM_CPP_LIB_NAME
+    )
+    # Vinum dependecies for library only
+    cpp_lib_bindings.include_dirs.extend(
+        include_dirs
+        + [
+            'vinum_cpp/src/operators/aggregate',
+            'vinum_cpp/src/operators/sort',
+            'vinum_cpp/src/operators',
+            'vinum_cpp/src/'
+        ]
+    )
+    cpp_lib_bindings.libraries.extend([VINUM_CPP_LIB_NAME] + libraries)
+    cpp_lib_bindings.library_dirs.extend(library_dirs)
+    print(f'**** LIBS: {cpp_lib_bindings.libraries}')
+    print(f'**** LIBDIRS: {cpp_lib_bindings.library_dirs}')
+    # cpp_lib_bindings.libdirs = ['src']
+    cpp_lib_bindings.extra_compile_args.extend(
+        extra_compile_args + hidden_visibility_args
+    )
+    cpp_lib_bindings.extra_link_args.extend(python_module_link_args)
+
+    extension_modules.append(cpp_lib_bindings)
+
+    return extension_modules
 
 cmdclass = versioneer.get_cmdclass()
 cmdclass["build_ext"] = CMakeBuild
@@ -208,6 +259,6 @@ setup(
         "Programming Language :: SQL",
         "Topic :: Scientific/Engineering",
     ],
-    ext_modules=ext_modules,
+    ext_modules=create_extensions(),
     zip_safe=False,
 )
