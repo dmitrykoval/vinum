@@ -1,6 +1,7 @@
 from collections import defaultdict
 from typing import List, Union, Optional, Tuple, Dict, cast, Set, Any
 
+import pyarrow as pa
 import numpy as np
 
 import moz_sql_parser
@@ -8,7 +9,7 @@ import pyparsing
 
 from vinum._typing import ParserArgType, QueryBaseType
 from vinum.arrow.arrow_table import ArrowTable
-from vinum.core.functions import is_aggregate_function
+from vinum.core.functions import is_aggregate_func
 from vinum.errors import ParserError
 from vinum.parser.query import (
     Column,
@@ -55,12 +56,12 @@ class AbstractSqlParser:
     ----------
     sql : str
         SQL statement to parse.
-    table : ArrowTable
-        Data table.
+    schema : pa.Schema
+        Schema.
     """
-    def __init__(self, sql: str, table: ArrowTable) -> None:
+    def __init__(self, sql: str, schema: pa.Schema) -> None:
         self._sql = sql
-        self._table = table
+        self._schema = schema
 
     def generate_query_tree(self) -> Query:
         """
@@ -136,8 +137,8 @@ class MozSqlParser(AbstractSqlParser):
         'np.e': np.e,
     }
 
-    def __init__(self, sql: str, table: ArrowTable) -> None:
-        super().__init__(sql, table)
+    def __init__(self, sql: str, schema: pa.Schema) -> None:
+        super().__init__(sql, schema)
         self._sql_parsed: Dict[str, Any] = {}
 
     def _parse_sql(self) -> None:
@@ -152,7 +153,7 @@ class MozSqlParser(AbstractSqlParser):
         """
         Return Column object if column exist in a table, None otherwise.
         """
-        if self._table.has_column(column_name):
+        if column_name in self._schema.names:
             return Column(column_name, alias)
         else:
             return None
@@ -178,6 +179,17 @@ class MozSqlParser(AbstractSqlParser):
                     return [Literal(arg) for arg in args]
                 else:
                     return Literal(args, alias)
+            elif operator in ('in', 'nin'):
+                for arg in args:
+                    if is_array_type(arg):
+                        arguments.append(Literal(arg, alias))
+                    else:
+                        arguments.append(
+                            self._resolve_expressions(
+                                arg,
+                                aliases_map=aliases_map
+                            )
+                        )
             else:
                 res_args = self._resolve_expressions(
                     args,
@@ -236,7 +248,7 @@ class MozSqlParser(AbstractSqlParser):
             source_columns = [select_clause]
         elif isinstance(select_clause, str) and select_clause == '*':
             return tuple(
-                (Column(col_name) for col_name in self._table.column_names)
+                (Column(col_name) for col_name in self._schema.names)
             )
         else:
             raise ParserError(
@@ -397,6 +409,20 @@ class MozSqlParser(AbstractSqlParser):
         )
 
     @staticmethod
+    def _is_aggregate_query(
+            select_expressions: Tuple[QueryBaseType, ...],
+    ) -> bool:
+        """
+        Test if query contains aggregate functions.
+        """
+        for expr in select_expressions:
+            if is_expression(expr):
+                for expr in flatten_expressions_tree(expr):
+                    if is_aggregate_func(expr.function_name):
+                        return True
+        return False
+
+    @staticmethod
     def _ensure_groupby_select_correctness(
             select_expressions: Tuple[QueryBaseType, ...],
             group_by: Tuple[QueryBaseType, ...]) -> None:
@@ -423,9 +449,13 @@ class MozSqlParser(AbstractSqlParser):
                 )
             elif is_expression(column):
                 column = cast(Expression, column)
-                if (column not in group_by_expressions
-                        and not is_aggregate_function(column.function_name)):
+                is_aggr_expr = False
+                for expr in flatten_expressions_tree(column):
+                    if is_aggregate_func(expr.function_name):
+                        is_aggr_expr = True
+                        break
 
+                if (column not in group_by_expressions and not is_aggr_expr):
                     op_name = (column.function_name
                                if column.function_name
                                else column.sql_operator)
@@ -447,7 +477,7 @@ class MozSqlParser(AbstractSqlParser):
         referenced in either SELECT or GROUP BY.
         """
         for expr in flatten_expressions_tree(having):
-            if (is_aggregate_function(expr.function_name)
+            if (is_aggregate_func(expr.function_name)
                     and not expr.is_shared()):
                 raise ParserError(
                     f'Aggregate function "{expr.function_name}" is used '
@@ -475,6 +505,7 @@ class MozSqlParser(AbstractSqlParser):
                 self._sql_parsed['where']
             )   # type: Optional[Expression]
 
+        is_aggregate_query = False
         group_by: Tuple[QueryBaseType, ...] = tuple()
         aliases_map = self._create_aliases_map(select_expressions)
         if 'groupby' in self._sql_parsed:
@@ -482,6 +513,10 @@ class MozSqlParser(AbstractSqlParser):
                 ensure_is_array(self._sql_parsed['groupby']),
                 aliases_map
             )
+            is_aggregate_query = True
+        if not is_aggregate_query:
+            is_aggregate_query = self._is_aggregate_query(select_expressions)
+        if is_aggregate_query:
             self._ensure_groupby_select_correctness(select_expressions,
                                                     group_by)
 
@@ -527,8 +562,9 @@ class MozSqlParser(AbstractSqlParser):
                 ) from e
 
         query = Query(
-            self._table,
+            self._schema,
             select_expressions,
+            is_aggregate_query,
             distinct_on,
             where_operators,
             group_by,
@@ -542,7 +578,7 @@ class MozSqlParser(AbstractSqlParser):
         return query
 
 
-def parser_factory(sql: str, table: ArrowTable) -> AbstractSqlParser:
+def parser_factory(sql: str, schema: pa.Schema) -> AbstractSqlParser:
     """
     Get SQL Parser instance.
 
@@ -550,12 +586,12 @@ def parser_factory(sql: str, table: ArrowTable) -> AbstractSqlParser:
     ----------
     sql : str
         SQL statement to parse.
-    table : ArrowTable
-        Data table.
+    schema : pa.Schema
+        Schema.
 
     Returns
     -------
     AbstractSqlParser
         Instance of AbstractSqlParser.
     """
-    return MozSqlParser(sql, table)
+    return MozSqlParser(sql, schema)

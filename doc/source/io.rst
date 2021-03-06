@@ -17,6 +17,11 @@ Table.from_pandas
 .. automethod:: vinum.Table.from_pandas
 
 
+stream_csv
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autofunction:: vinum.stream_csv
+
 read_csv
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

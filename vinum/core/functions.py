@@ -1,104 +1,396 @@
-import numpy as np
-from typing import Dict, Callable, Set, Optional
+import re
+from enum import Enum, auto
+from typing import Optional, Any, Iterable, Tuple, Union
 
-from vinum.core.operators.numpy_function_operators import (
-    IntCastOperator,
-    BoolCastOperator,
-    FloatCastOperator,
-    StringCastOperator,
-    DatetimeOperator,
-    TimestampOperator,
-    DateOperator,
-    ConcatOperator,
-    UpperStringOperator,
-    LowerStringOperator,
+import numpy as np
+import pyarrow as pa
+import pyarrow.compute as pc
+
+from vinum._typing import AnyArrayLike, OperatorArgument
+from vinum.arrow.arrow_table import ArrowTable
+from vinum.core.base import Operator, VectorizedExpression
+
+from vinum.errors import OperatorError
+from vinum.parser.query import Column, Literal
+from vinum.util.util import (
+    ensure_is_array,
+    is_numpy_array,
+    is_numpy_str_array, is_pyarrow_array, is_pyarrow_string, is_array_type,
 )
-from vinum.core.operators.numpy_operator_mappings import AGGREGATE_OPERATORS
-from vinum.errors import FunctionError
+
+
+class DatetimeFunction(VectorizedExpression):
+    """
+    Datetime built-in function.
+
+    Essentially, acts as a mapper from Nympy datetime64
+    types to Arrow datetime types.
+
+    Important! Units should be listed, in the increasing resolution order.
+    """
+    UNITS = ['D', 's', 'ms', 'us', 'ns']
+    NUMPY_UNITS = ['Y', 'M', 'W', 'D', 'h', 'm', 's', 'ms', 'us', 'ns']
+
+    unit: Optional[str] = None
+
+    def _ensure_ts_unit(self, unit: str) -> None:
+        if unit not in self.UNITS:
+            msg = (f"Unsupported {self.__class__.__name__} unit: '{unit}'. "
+                   f"Supported units are: [{', '.join(self.UNITS)}]")
+            raise OperatorError(msg)
+
+    def _get_unit(self, arguments: Any) -> str:
+        if len(arguments) > 1:
+            unit = arguments[1]
+            self._ensure_ts_unit(unit)
+        else:
+            unit = self.unit
+        return unit
+
+    @staticmethod
+    def _format_datetime_dtype(unit: str = None) -> str:
+        dtype = 'datetime64'
+        if unit:
+            return f'{dtype}[{unit}]'
+        else:
+            return dtype
+
+    def _get_dtype(self, arguments: Any):
+        unit = self._get_unit(arguments)
+        return self._format_datetime_dtype(unit)
+
+    @staticmethod
+    def _parse_numpy_datetime_unit(dtype: np.dtype) -> str:
+        assert dtype
+        name = dtype.name
+        if name and '[' in name:
+            return name[name.index('[') + 1:name.index(']')]
+        else:
+            return ''
+
+    def _find_higher_res_unit(self, numpy_unit: str) -> str:
+        """"
+        Find the next supported unit which would give higher resolution,
+        than provided numpy unit.
+
+        For example, if 'h' (hours) is passed and only seconds are supported,
+        the method would return 's'.
+        If none found, highest supported resolution is returned.
+
+        Parameters
+        ----------
+        numpy_unit : str
+            Numpy datetime unit ('Y', 'M', 'W', 'D', 'h', ..)
+        """
+        try:
+            np_units_idx = self.NUMPY_UNITS.index(numpy_unit)
+            for sup_unit in self.NUMPY_UNITS[np_units_idx + 1:]:
+                if sup_unit in self.UNITS:
+                    return sup_unit
+        except ValueError:
+            pass
+        return self.UNITS[-1]
+
+    def _ensure_unit_correctness(self, np_array: np.ndarray) -> np.ndarray:
+        """
+        Ensure the array unit is supported by the class.
+
+        If the time unit is not passed explicitly, np.datetime64 would try to
+        autodect it. The resulting unit time might not be supported by Arrow.
+        This method makes sure the resulting unit is supported by Arrow,
+        by upscaling it to the highest supported unit.
+        """
+        unit = self._parse_numpy_datetime_unit(np_array.dtype)
+        if unit not in self.UNITS:
+            sup_unit = self._find_higher_res_unit(unit)
+            return np_array.astype(self._format_datetime_dtype(sup_unit))
+        return np_array
+
+    def _expr_kernel(self, arguments: Any, table: ArrowTable) -> Any:
+        if not len(arguments):
+            msg = f'No arguments provided for {self.__class__} operator.'
+            raise OperatorError(msg)
+
+        arg = ensure_is_array(arguments[0])
+        dtimes = np.array(arg, dtype=self._get_dtype(arguments))
+        return self._ensure_unit_correctness(dtimes)
+
+
+class DateFunction(DatetimeFunction):
+    """
+    Date built-in function.
+    """
+    UNITS = ['D']
+
+    unit = 'D'
+
+
+class TimestampFunction(DatetimeFunction):
+    """
+    From_timestamp built-in function.
+    """
+    UNITS = ['s', 'ms', 'us', 'ns']
+
+    unit = 's'
+
+
+class AbstractCastFunction(VectorizedExpression):
+    """
+    Abstract cast operator.
+
+    Provides basic functionality for type casting, subclasses can
+    simply define the type to cast to via `type` class property.
+    See BoolCastFunction for an example.
+    """
+    type: Optional[str] = None
+
+    def _expr_kernel(self, arguments: Any, table: ArrowTable) -> Any:
+        if len(arguments) > 1:
+            arr = arguments
+        else:
+            arr = arguments[0]
+
+        arr = ensure_is_array(arr)
+        return np.array(arr, dtype=self.type)
+
+
+class BoolCastFunction(AbstractCastFunction):
+    """
+    Bool type cast built-in function.
+    """
+    type = 'bool'
+
+
+class FloatCastFunction(AbstractCastFunction):
+    """
+    Float type cast built-in function.
+    """
+    type = 'float'
+
+
+class IntCastFunction(AbstractCastFunction):
+    """
+    Int type cast built-in function.
+    """
+    type = 'int'
+
+
+class StringCastFunction(AbstractCastFunction):
+    """
+    String type cast built-in function.
+    """
+    type = 'str'
+
+
+class AbstractStringFunction(VectorizedExpression):
+    """
+    Abstract String Operator.
+
+    Provides basic functionality for string manipulation,
+    such as casting non-string arguments to string, etc.
+    """
+
+    def _process_arguments(self, arguments: Iterable[OperatorArgument],
+                           batch: ArrowTable) -> Tuple:
+        args = super()._process_arguments(arguments, batch)
+        return self._cast_args_to_str(args)
+
+    @staticmethod
+    def _cast_args_to_str(args: Iterable
+                          ) -> Tuple[Union[str, np.ndarray], ...]:
+        str_args = []
+
+        has_arrays = any(is_array_type(arg) for arg in args)
+
+        for arg in args:
+            if is_numpy_array(arg):
+                clean_arg = np.array(arg, dtype="U")
+            elif is_pyarrow_array(arg):
+                if not pa.types.is_string(arg.type):
+                    clean_arg = arg.cast(target_type=pa.string())
+                else:
+                    clean_arg = arg
+            else:
+                if has_arrays:
+                    clean_arg = pa.array((str(arg),), type=pa.string())
+                else:
+                    clean_arg = str(arg)
+            str_args.append(clean_arg)
+        return tuple(str_args)
+
+    @staticmethod
+    def _post_process_result(result: Any) -> Any:
+        """
+        In case the result is a single string, wrap it as an array.
+        """
+        if is_numpy_str_array(result) and result.shape == ():
+            return np.array((result,))
+        elif is_pyarrow_string(result):
+            # TODO conversion to python string is a hack,
+            # TODO but otherwise it throws an exception:
+            # TODO 'pyarrow.lib.ArrowTypeError: Expected bytes,
+            # TODO  got a 'pyarrow.lib.StringScalar' object'
+            # TODO need to file a bug report
+            return pa.array((result.as_py(),), type=pa.string())
+        else:
+            return result
+
+
+class ConcatFunction(AbstractStringFunction):
+    """
+    String Concat Operator.
+
+    Concatenate all the arguments as strings.
+
+    Parameters
+    ----------
+    arguments : Iterable[OperatorBaseType, ...]
+        Columns or string literals to concatenate.
+    table : ArrowTable
+        Table.
+    """
+    def __init__(self,
+                 arguments: Iterable[OperatorArgument]) -> None:
+        super().__init__(arguments=arguments,
+                         function=np.char.add,
+                         is_numpy_func=True,
+                         is_binary_func=True)
+
+    def _process_arguments(self, arguments: Iterable[OperatorArgument],
+                           batch: ArrowTable) -> Tuple:
+        args = super()._process_arguments(arguments, batch)
+
+        return tuple(arg if is_numpy_array(arg)
+                     else np.array(arg, dtype='U')
+                     for arg in args)
+
+class UpperStringFunction(AbstractStringFunction):
+    """
+    Upper String Operator.
+
+    Convert a string to uppercase.
+    """
+    def _expr_kernel(self, arguments: Any, table: ArrowTable) -> Any:
+        # return np.char.upper(*arguments)
+        return pc.utf8_upper(*arguments)
+
+
+class LowerStringFunction(AbstractStringFunction):
+    """
+    Lower String function.
+
+    Convert a string to lowercase.
+    """
+    def _expr_kernel(self, arguments: Any, table: ArrowTable) -> Any:
+        return pc.utf8_lower(*arguments)
+        # return np.char.lower(*arguments)
+
+
+class LikeFunction(VectorizedExpression):
+    """
+    LIKE function.
+
+    Return boolean mask based on string pattern.
+    Supports:
+        '_' for a single character wildcard,
+        '%' for zero or more characters wildcard.
+
+    Parameters
+    ----------
+    arguments : Tuple[Union[Column, Operator], Literal]
+        First argument is column or expression to perform LIKE operation on.
+        Second argument is the string pattern.
+    invert : bool
+        Set to True for inverting the result - 'NOT LIKE'.
+    """
+    def __init__(self,
+                 arguments: Tuple[Union[Column, VectorizedExpression], Literal],
+                 invert: bool) -> None:
+        super().__init__(arguments=arguments,
+                         is_numpy_func=True)
+        self.invert = invert
+
+    @staticmethod
+    def _compile_regex_pattern(pattern: str) -> re.Pattern:
+        assert pattern is not None
+        pattern = pattern.replace('_', '.')
+        pattern = pattern.replace('%', '.*')
+        pattern = f'^{pattern}$'
+        return re.compile(pattern)
+
+    def _like(self, column: AnyArrayLike, pattern: str) -> Iterable[bool]:
+        def re_lambda(val):
+            return bool(compiled_pattern.match(val)) != self.invert
+
+        compiled_pattern = self._compile_regex_pattern(pattern)
+        re_func = np.vectorize(re_lambda)
+
+        return re_func(column)
+
+    def _expr_kernel(self, arguments: Any, table: ArrowTable) -> Any:
+        column, pattern = arguments
+        return self._like(column, pattern)
+
+
+class FunctionType(Enum):
+    ARROW = auto()
+    NUMPY = auto()
+    CLASS = auto()
 
 
 _default_functions_registry = {
     # Type conversion
-    'bool': BoolCastOperator,
-    'float': FloatCastOperator,
-    'int': IntCastOperator,
-    'str': StringCastOperator,
+    'bool': (BoolCastFunction, FunctionType.CLASS),
+    'float': (FloatCastFunction, FunctionType.CLASS),
+    'int': (IntCastFunction, FunctionType.CLASS),
+    'str': (StringCastFunction, FunctionType.CLASS),
 
     # Math
-    'abs': np.absolute,
-    'sqrt': np.sqrt,
-    'cos': np.cos,
-    'sin': np.sin,
-    'tan': np.tan,
-    'power': np.power,
-    'log': np.log,
-    'log2': np.log2,
-    'log10': np.log10,
+    'abs': (np.absolute, FunctionType.NUMPY),
+    'sqrt': (np.sqrt, FunctionType.NUMPY),
+    'cos': (np.cos, FunctionType.NUMPY),
+    'sin': (np.sin, FunctionType.NUMPY),
+    'tan': (np.tan, FunctionType.NUMPY),
+    'power': (np.power, FunctionType.NUMPY),
+    'log': (np.log, FunctionType.NUMPY),
+    'log2': (np.log2, FunctionType.NUMPY),
+    'log10': (np.log10, FunctionType.NUMPY),
 
     # Datetime
-    'date': DateOperator,
-    'datetime': DatetimeOperator,
-    'from_timestamp': TimestampOperator,
-    'timedelta': np.timedelta64,
-    'is_busday': np.is_busday,
+    'date': (DateFunction, FunctionType.CLASS),
+    'datetime': (DatetimeFunction, FunctionType.CLASS),
+    'from_timestamp': (TimestampFunction, FunctionType.CLASS),
+    'timedelta': (np.timedelta64, FunctionType.NUMPY),
+    'is_busday': (np.is_busday, FunctionType.NUMPY),
 
     # String
-    'concat': ConcatOperator,
-    'upper': UpperStringOperator,
-    'lower': LowerStringOperator,
+    'concat': (ConcatFunction, FunctionType.CLASS),
+    'upper': (UpperStringFunction, FunctionType.CLASS),
+    'lower': (LowerStringFunction, FunctionType.CLASS),
 }
 
 
-AGGREGATE_FUNCTIONS = {
+AGG_FUNCS = {
     'count',
-    'sum',
     'min',
     'max',
-    'mean',
-    'median',
-    'var',
+    'sum',
     'avg',
-    'std',
-    'stddev',
     'np.min',
     'np.max',
-    'np.mean',
-    'np.std',
-    'np.var',
-    'np.median',
+    'np.sum',
 }
 
-_udf_registry: Dict[str, Callable] = {}
-_udf_aggregate_functions: Set[str] = set()
+NUMPY_AGG_MAPPING = {
+    'np.min': 'min',
+    'np.max': 'max',
+    'np.sum': 'sum',
+}
 
 
-def _ensure_function_name_correctness(name: str) -> str:
-    assert name is not None
-    assert type(name) == str
-    return name.lower()
-
-
-def _register_udf(name: str, function, is_aggregate=False) -> None:
-    function_name = _ensure_function_name_correctness(name)
-
-    _remove_udf(name)
-
-    _udf_registry[function_name] = function
-
-    if is_aggregate:
-        _udf_aggregate_functions.add(name)
-
-
-def _remove_udf(name: str) -> None:
-    if name in _udf_registry:
-        del _udf_registry[name]
-    if name in _udf_aggregate_functions:
-        _udf_aggregate_functions.remove(name)
-
-
-def is_aggregate_function(function_name: Optional[str]) -> bool:
+def is_aggregate_func(function_name: Optional[str]) -> bool:
     """
-    Return True if function is either built-in aggregate or user-defined one.
+    Return True if function is aggregate.
 
     Parameters
     ----------
@@ -110,231 +402,13 @@ def is_aggregate_function(function_name: Optional[str]) -> bool:
     bool
         True if the function is aggregate.
     """
-    return (function_name in AGGREGATE_FUNCTIONS
-            or function_name in _udf_aggregate_functions)
+    return function_name and function_name.lower() in AGG_FUNCS
 
 
-def lookup_aggregate_function(function_name: str) -> Callable:
-    """
-    Return aggregate function by function name.
-
-    First, built-in aggregates registry is used, if the function is not found
-    then aggregate UDFs registry is checked.
-
-    Parameters
-    ----------
-    function_name : str
-        Name of the function.
-
-    Returns
-    -------
-    Callable
-        Function callable.
-    """
-    if function_name in AGGREGATE_OPERATORS.keys():
-        return AGGREGATE_OPERATORS[function_name]
-    elif function_name in _udf_aggregate_functions:
-        return lookup_udf(function_name)
+def ensure_numpy_mapping(function_name):
+    assert function_name
+    function_name = function_name.lower()
+    if function_name in NUMPY_AGG_MAPPING:
+        return NUMPY_AGG_MAPPING[function_name]
     else:
-        raise FunctionError(
-            f"Aggregate function '{function_name}' is not found."
-        )
-
-
-def lookup_udf(function_name: str) -> Callable:
-    """
-    Return UDF by name.
-
-    If function is a numpy function, ie it starts with a
-    reserved namespace 'np.', its definition is evaluated via `eval`
-    and resulting Callable returned.
-
-    Parameters
-    ----------
-    function_name : str
-        Name of the function.
-
-    Returns
-    -------
-    Callable
-        Function callable.
-    """
-    function_name = _ensure_function_name_correctness(function_name)
-
-    if function_name.startswith('np.'):
-        try:
-            return eval(function_name)
-        except (NameError, AttributeError):
-            raise FunctionError(
-                f"Numpy function '{function_name}' is not found "
-                "in the numpy package."
-            )
-    elif function_name in _default_functions_registry:
-        return _default_functions_registry[function_name]
-    elif function_name in _udf_registry:
-        return _udf_registry[function_name]
-    else:
-        raise FunctionError(f"Function '{function_name}' is not found.")
-
-
-def register_python(function_name: str, function) -> None:
-    """
-    Register Python function as a User Defined Function (UDF).
-
-    Parameters
-    ----------
-    function_name : str
-        Name of the User Defined Function.
-    function: callable, python function
-        Function to be used as a UDF.
-
-    See also
-    --------
-    register_numpy : Register Numpy function as a User Defined Function.
-
-    Notes
-    -----
-    Python functions are "vectorized" before use, via ``numpy.vectorize``.
-    For better performance, please try to use numpy UDFs,
-    operating in terms of numpy arrays. See :func:`vinum.register_numpy`.
-
-    Function would be invoked for individual rows of the Table.
-
-    Any python packages used inside of the function should be imported
-    before the invocation.
-
-    Function names are case insensitive.
-
-    Examples
-    --------
-    Using lambda as a UDF:
-
-    >>> import vinum as vn
-    >>> vn.register_python('cube', lambda x: x**3)
-    >>> tbl = vn.Table.from_pydict({'len': [1, 2, 3], 'size': [7, 13, 17]})
-    >>> tbl.sql_pd('SELECT cube(size) from t ORDER BY cube(size) DESC')
-       cube
-    0  4913
-    1  2197
-    2   343
-
-    >>> import math
-    >>> import vinum as vn
-    >>> vn.register_python('distance', lambda x, y: math.sqrt(x**2 + y**2))
-    >>> tbl = vn.Table.from_pydict({'x': [1, 2, 3], 'y': [7, 13, 17]})
-    >>> tbl.sql_pd('select x, y, distance(x, y) as dist from t')
-       x   y       dist
-    0  1   7   7.071068
-    1  2  13  13.152946
-    2  3  17  17.262677
-
-    Using regular python function:
-
-    >>> import vinum as vn
-    >>> def sin_taylor(x):
-    ...     "Taylor series approximation of the sine trig function around 0."
-    ...     return x - x**3/6 + x**5/120 - x**7/5040
-    ...
-    >>> vn.register_python('sin', sin_taylor)
-    >>> tbl = vn.Table.from_pydict({'x': [1, 2, 3], 'y': [7, 13, 17]})
-    >>> tbl.sql_pd('select sin(x) as sin_x, sin(y) as sin_y from t '
-    ...            'order by sin_y')
-          sin_x     sin_y
-    0  0.141120 -0.961397
-    1  0.909297  0.420167
-    2  0.841471  0.656987
-    """
-    function = np.vectorize(function)
-    _register_udf(function_name, function)
-
-
-def register_numpy(function_name: str, function, is_aggregate=False) -> None:
-    """
-    Register Numpy function as a User Defined Function (UDF).
-    UDF can perform vectorized operations on arrays passed as arguments.
-
-    Parameters
-    ----------
-    function_name : str
-        Name of the User Defined Function.
-
-    function: callable
-        Function to be used as a UDF. Function has to operate on vectorized
-        numpy arrays.
-        Numpy arrays will be passed as input arguments to the function
-        and it should return numpy array.
-        (except when ``is_aggregate``=True).
-
-    is_aggregate: bool, optional
-        Set to `True` when the function is aggregate - that is taking
-        numpy array as an input
-        and returning scalar value. Aggregate functions can be used
-        in GROUP BY queries.
-
-
-    See also
-    --------
-    register_python : Register Python function as a User Defined Function.
-
-    Notes
-    -----
-    Numpy package is imported under `np` namespace.
-    You can invoke any function from the `np.*` namespace.
-
-    Arguments of the function would be numpy arrays of provided columns.
-    UDF can perform vectorized operations on arrays passed as arguments.
-    The function would be called only once
-    (or once per group in the GROUP BY queries).
-
-    Function names are case insensitive.
-
-    Examples
-    --------
-    Define a function operating with Numpy arrays. Numpy function perform
-    vectorized operations on input numpy arrays.
-
-    >>> import numpy as np
-    >>> import vinum as vn
-    >>> vn.register_numpy('cube', lambda x: np.power(x, 3))
-    >>> tbl = vn.Table.from_pydict({'len': [1, 2, 3], 'size': [7, 13, 17]})
-    >>> tbl.sql_pd('SELECT cube(size) from t ORDER BY cube(size) DESC')
-       cube
-    0  4913
-    1  2197
-    2   343
-
-    >>> import numpy as np
-    >>> import vinum as vn
-    >>> vn.register_numpy('distance',
-    ...                   lambda x, y: np.sqrt(np.square(x) + np.square(y)))
-    >>> tbl = vn.Table.from_pydict({'x': [1, 2, 3], 'y': [7, 13, 17]})
-    >>> tbl.sql_pd('select x, y, distance(x, y) as dist from t')
-       x   y       dist
-    0  1   7   7.071068
-    1  2  13  13.152946
-    2  3  17  17.262677
-
-    Please note that `x` and `y` arguments are of `np.array` type.
-    In both of the cases function perform vectorized operations on input
-    numpy arrays.
-
-
-    >>> import numpy as np
-    >>> import vinum as vn
-    >>> def z_score(x: np.array):
-    ...     \"\"\"Compute Standard Score\"\"\"
-    ...     mean = np.mean(x)
-    ...     std = np.std(x)
-    ...     return (x - mean) / std
-    ...
-    >>> vn.register_numpy('score', z_score)
-    >>> tbl = vn.Table.from_pydict({'x': [1, 2, 3], 'y': [7, 13, 17]})
-    >>> tbl.sql_pd('select x, score(x), y, score(y) from t')
-       x     score   y   score_1
-    0  1 -1.224745   7 -1.297771
-    1  2  0.000000  13  0.162221
-    2  3  1.224745  17  1.135550
-
-    Please note that `x` argument is of `np.array` type.
-    """
-    _register_udf(function_name, function, is_aggregate)
+        return function_name

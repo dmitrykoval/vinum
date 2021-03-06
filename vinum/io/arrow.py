@@ -1,12 +1,71 @@
-from pyarrow import csv, json, parquet
+import pyarrow.csv
+import pyarrow.json
+import pyarrow.parquet
 
-from vinum.core.table import Table
+from vinum.api.stream_reader import StreamReader
+from vinum.api.table import Table
+
+
+def stream_csv(input_file, read_options=None, parse_options=None,
+               convert_options=None):
+    """
+    stream_csv(input_file, read_options=None, parse_options=None, convert_options=None)
+
+        Open a streaming reader of CSV data.
+
+        Reading using this function is always single-threaded.
+
+        This function is a thin convenience wrapper around
+        ``pyarrow.csv.open_csv``, which returns ``StreamReader``.
+
+
+        Parameters
+        ----------
+        input_file: string, path or file-like object
+            The location of CSV data.  If a string or path, and if it ends
+            with a recognized compressed file extension (e.g. ".gz" or ".bz2"),
+            the data is automatically decompressed when reading.
+        read_options: pyarrow.csv.ReadOptions, optional
+            Options for the CSV reader (see pyarrow.csv.ReadOptions constructor
+            for defaults)
+        parse_options: pyarrow.csv.ParseOptions, optional
+            Options for the CSV parser
+            (see pyarrow.csv.ParseOptions constructor for defaults)
+        convert_options: pyarrow.csv.ConvertOptions, optional
+            Options for converting CSV data
+            (see pyarrow.csv.ConvertOptions constructor for defaults)
+
+        Returns
+        -------
+        :class:`StreamReader`
+
+        Examples
+        --------
+        Run aggregation query on a csv stream:
+
+        >>> import vinum as vn
+        >>> query = 'select passenger_count pc, count(*) from t group by pc'
+        >>> vn.stream_csv('taxi.csv').sql(query).to_pandas()
+           pc  count
+        0   0    165
+        1   5   3453
+        2   6    989
+        3   1  34808
+        4   2   7386
+        5   3   2183
+        6   4   1016
+    """
+    return StreamReader(
+        pyarrow.csv.open_csv(input_file, read_options,
+                             parse_options, convert_options)
+    )
 
 
 def read_csv(input_file, read_options=None, parse_options=None,
              convert_options=None, memory_pool=None) -> Table:
     """
     Read a `Table` from a stream of CSV data.
+
     This function is a thin convenience wrapper around
     ``pyarrow.csv.read_csv``, which returns ``Table``.
 
@@ -44,8 +103,8 @@ def read_csv(input_file, read_options=None, parse_options=None,
     1   1   2010-01-05 16:52:16.0000002  40.711303 -74.016048  16.9
     2   2  2011-08-18 00:35:00.00000049  40.761270 -73.982738   5.7
     """
-    table = csv.read_csv(input_file, read_options, parse_options,
-                         convert_options, memory_pool)
+    table = pyarrow.csv.read_csv(input_file, read_options, parse_options,
+                                 convert_options, memory_pool)
     return Table(table)
 
 
@@ -84,8 +143,8 @@ def read_json(input_file, read_options=None, parse_options=None,
     1   2  Berlin         London   256.3
     2   3  Munich         Malaga   421.7
     """
-    table = json.read_json(input_file, read_options, parse_options,
-                           memory_pool)
+    table = pyarrow.json.read_json(input_file, read_options, parse_options,
+                                   memory_pool)
     return Table(table)
 
 
@@ -181,8 +240,9 @@ def read_parquet(source, columns=None, use_threads=True, metadata=None,
 
     [3 rows x 13 columns]
     """
-    table = parquet.read_table(source, columns, use_threads, metadata,
-                               use_pandas_metadata, memory_map,
-                               read_dictionary, filesystem, filters,
-                               buffer_size, partitioning, use_legacy_dataset)
+    table = pyarrow.parquet.read_table(source, columns, use_threads, metadata,
+                                       use_pandas_metadata, memory_map,
+                                       read_dictionary, filesystem, filters,
+                                       buffer_size, partitioning,
+                                       use_legacy_dataset)
     return Table(table)

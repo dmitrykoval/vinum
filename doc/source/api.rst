@@ -8,7 +8,9 @@ Vinum API reference.
    :maxdepth: 3
    :caption: API Reference:
 
-   dataframe
+   table
+
+   stream_reader
 
    io
 

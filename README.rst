@@ -2,7 +2,7 @@
 Vinum
 *****
 
-|PyPi|_ |Travis|_ |Codecov|_ |GitTutorial|_
+|PyPi|_ |Travis|_ |Grade_Python|_ |Codecov|_
 
 
 .. |PyPi| image:: https://img.shields.io/pypi/v/vinum.svg
@@ -11,20 +11,21 @@ Vinum
 .. |Travis| image:: https://travis-ci.com/dmitrykoval/vinum.svg?branch=main
 .. _Travis: https://travis-ci.com/dmitrykoval/vinum
 
+.. |Grade_Python| image:: https://img.shields.io/lgtm/grade/python/g/dmitrykoval/vinum.svg?logo=lgtm&logoWidth=18
+.. _Grade_Python: https://lgtm.com/projects/g/dmitrykoval/vinum/context:python
+
 .. |Codecov| image:: https://codecov.io/gh/dmitrykoval/vinum/branch/main/graphs/badge.svg?branch=main&service=github
 .. _Codecov: https://codecov.io/gh/dmitrykoval/vinum?branch=main
 
-.. |GitTutorial| image:: https://img.shields.io/badge/PR-Welcome-%23FF8300.svg?
-.. _GitTutorial: https://git-scm.com/book/en/v2/GitHub-Contributing-to-a-Project
 
 
-**Vinum** is a SQL processor written in pure Python, designed for
+**Vinum** is a SQL processor for Python, designed for
 data analysis workflows and in-memory analytics. 
 Conceptually, Vinum's design goal is to provide deeper integration of 
 Python data analysis tools such as `Numpy <https://numpy.org/>`_,
 `Pandas <https://pandas.pydata.org/>`_ or in general any Python code with
 the SQL language. Key features include native support of
-vectorized Numpy and Python functions as UDFs in SQL queries.
+vectorized Numpy and pure Python functions as UDFs in SQL queries.
 
 
 Key Features:
@@ -46,11 +47,14 @@ Key Features:
 
 Design
 ======
-Vinum's query planner compiles SQL SELECT statement into a DAG of
-vectorized Arrow and Numpy operators and therefore integration with Numpy,
-Arrow or native Python functions comes naturally.
-In Vinum, all Numpy functions are first class citizens and can be used inside 
+Vinum's query planner compiles SQL SELECT query into a tree of
+vectorized Arrow and Numpy based operators and therefore integration
+with Numpy, Arrow or native Python functions comes naturally.
+In Vinum, all Numpy functions are first class citizens and can be used inside
 of SELECT, WHERE, GROUP BY, HAVING and ORDER BY clauses.
+
+Execution model is a vectorized version of the class "Volcano" style
+iterator model, which enables intra-operator parallelism.
 
 Below is an example of a possible simplified query plan.
 
@@ -93,6 +97,11 @@ Query pandas dataframe
        col1  col2
     0     3    17
     1     2    13
+
+
+Run query on streamed csv
+-------------------------
+when dataset doesn't fit into memory - use stream_csv...
 
 
 Query csv
@@ -185,10 +194,15 @@ Documentation
 * `Getting started <https://vinum.readthedocs.io/en/latest/getting_started.html>`_
 
 
+Primary use-cases
+=================
+??
+
+
 What Vinum is not
 =================
 Vinum is not a Database Management System, there are no plans to support
-INSERT or UPDATE statements, as well as MVCC.
+data mutation, INSERT or UPDATE statements, as well as transactions.
 
 Dependencies
 ============
@@ -200,4 +214,4 @@ Future plans
 ============
 * Performance improvements.
 * Support sub-queries and JOINs.
-* Parallel execution.
+* Parallel execution (intra-operator parallelism).
