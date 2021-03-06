@@ -31,7 +31,9 @@ jobs:
         run: python -m pip install cibuildwheel==1.10.0
 
       - name: Build wheels
-        run: python -m cibuildwheel --output-dir wheelhouse
+        run: |
+          pip show versioneer
+          python -m cibuildwheel --output-dir wheelhouse
 
       - name: Test with pytest
         run: |
