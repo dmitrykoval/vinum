@@ -217,7 +217,8 @@ def create_extensions():
     return [cpp_lib]
 
 
-cmdclass = versioneer.get_cmdclass()
+# cmdclass = versioneer.get_cmdclass()
+cmdclass = {}
 cmdclass["build_ext"] = CMakeBuild
 
 setup(
