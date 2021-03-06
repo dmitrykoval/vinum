@@ -17,7 +17,8 @@ with open("README.rst", "r") as f:
     long_description = f.read()
 
 NAME = "vinum"
-VERSION = versioneer.get_version()
+# VERSION = versioneer.get_version()
+VERSION = "0.2.0"
 AUTHOR = "Dmitry Koval"
 AUTHOR_EMAIL = "dima@koval.space"
 DESCRIPTION = (
