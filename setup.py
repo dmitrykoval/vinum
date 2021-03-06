@@ -196,6 +196,7 @@ def create_extensions():
         python_lib_cxx_flags.append('-fvisibility=hidden')
         python_lib_linker_args.append("-Wl,-rpath,$ORIGIN")
         python_lib_linker_args.append("-Wl,-rpath,$ORIGIN/pyarrow")
+        python_lib_linker_args.append("-Wl,-rpath,$ORIGIN/../pyarrow")
         python_lib_macros = ('_GLIBCXX_USE_CXX11_ABI', '0')
         cpp_lib_cxx_flags.append('-D_GLIBCXX_USE_CXX11_ABI=0')
 
