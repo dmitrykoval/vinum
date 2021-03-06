@@ -211,8 +211,8 @@ class SliceOperator(Operator):
     ----------
     limit : int
         Number of rows to retain.
-    limit : int
-        Number of rows to retain.
+    offset : int
+        Offset where to start the slice.
     """
     def __init__(self,
                  limit: int,

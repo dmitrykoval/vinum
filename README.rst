@@ -2,7 +2,7 @@
 Vinum
 *****
 
-|PyPi|_ |Travis|_ |Codecov|_ |GitTutorial|_
+|PyPi|_ |Travis|_ |Grade_Python|_ |Codecov|_
 
 
 .. |PyPi| image:: https://img.shields.io/pypi/v/vinum.svg
@@ -11,11 +11,12 @@ Vinum
 .. |Travis| image:: https://travis-ci.com/dmitrykoval/vinum.svg?branch=main
 .. _Travis: https://travis-ci.com/dmitrykoval/vinum
 
+.. |Grade_Python| image:: https://img.shields.io/lgtm/grade/python/g/dmitrykoval/vinum.svg?logo=lgtm&logoWidth=18
+.. _Grade_Python: https://lgtm.com/projects/g/dmitrykoval/vinum/context:python
+
 .. |Codecov| image:: https://codecov.io/gh/dmitrykoval/vinum/branch/main/graphs/badge.svg?branch=main&service=github
 .. _Codecov: https://codecov.io/gh/dmitrykoval/vinum?branch=main
 
-.. |GitTutorial| image:: https://img.shields.io/badge/PR-Welcome-%23FF8300.svg?
-.. _GitTutorial: https://git-scm.com/book/en/v2/GitHub-Contributing-to-a-Project
 
 
 **Vinum** is a SQL processor for Python, designed for

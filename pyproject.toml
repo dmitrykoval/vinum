@@ -1,3 +1,12 @@
+[project]
+requires-python = ">=3.7"
+
 [build-system]
-requires = ["setuptools>=42", "wheel", "pybind11>=2.6.2"]
+requires = [
+    "setuptools>=42",
+    "wheel",
+    "pybind11>=2.6.2",
+    "pyarrow>=3.0.0",
+    "cmake>=3.13",
+]
 build-backend = "setuptools.build_meta"

@@ -89,7 +89,7 @@ def is_numpy_array(array: Any) -> bool:
 
 
 def is_numpy_str_array(array: Any) -> bool:
-    return is_numpy_array(array) and np.issubdtype(array.dtype, np.str)
+    return is_numpy_array(array) and np.issubdtype(array.dtype, str)
 
 
 def is_pyarrow_array(array: Any) -> bool:

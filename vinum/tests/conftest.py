@@ -135,7 +135,7 @@ def _assert_tables_equal(actual, expected):
     for column_name in expected.keys():
         expected_col = np.array(expected[column_name])
         result_col = arrow_table.get_np_column_by_name(column_name)
-        if np.issubdtype(result_col.dtype, np.float):
+        if np.issubdtype(result_col.dtype, float):
             assert np.allclose(result_col, expected_col, equal_nan=True)
         else:
             assert np.array_equal(result_col, expected_col)

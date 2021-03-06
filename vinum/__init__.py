@@ -17,10 +17,6 @@ if missing_dependencies:
     )
 del hard_dependencies, dependency, missing_dependencies
 
-# Need to create symlinks to pyarrow shared libs
-# import pyarrow
-# pyarrow.create_library_symlinks()
-
 import vinum_lib
 if vinum_lib.import_pyarrow() != 0:
     raise StandardError('Failed to initialize pyarrow C++ bindings.')

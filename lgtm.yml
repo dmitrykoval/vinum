@@ -1,0 +1,3 @@
+path_classifiers:
+  src:
+    - exclude: "_version.py"

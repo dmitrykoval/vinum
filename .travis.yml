@@ -4,7 +4,7 @@ matrix:
   fast_finish: true
   include:
   - os: linux
-    dist: xenial
+    dist: bionic
     services:
       - docker
     addons:
@@ -16,7 +16,6 @@ matrix:
         packages:
           - g++-7
           - cmake
-          - ninja-build
           - python3.7
           - python3.7-dev
       homebrew:
@@ -29,7 +28,7 @@ matrix:
       - CXX=g++-7
 
   - os: linux
-    dist: xenial
+    dist: bionic
     services:
       - docker
     addons:
@@ -41,7 +40,6 @@ matrix:
         packages:
           - g++-7
           - cmake
-          - ninja-build
           - python3.8
           - python3.8-dev
       homebrew:
@@ -83,8 +81,7 @@ before_script:
   - $PY --version
   - cmake --version
   - $PY setup.py build_ext --inplace
-  - ldd vinum_lib.cpython-37m-x86_64-linux-gnu.so
 script:
-  - pytest --cov=vinum vinum/tests
+  - $PY -m pytest --cov=vinum vinum/tests
 after_success:
   - bash <(curl -s https://codecov.io/bash)
