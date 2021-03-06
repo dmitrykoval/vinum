@@ -34,6 +34,8 @@ jobs:
         run: |
           pip show versioneer
           python -m cibuildwheel --output-dir wheelhouse
+        env:
+          - CIBW_BEFORE_BUILD: pip freeze && pip install -U versioneer
 
       - name: Test with pytest
         run: |
