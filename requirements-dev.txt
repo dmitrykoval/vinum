@@ -13,5 +13,5 @@ requests
 setuptools
 sphinx
 twine
-versioneer
+versioneer>=0.19
 wheel

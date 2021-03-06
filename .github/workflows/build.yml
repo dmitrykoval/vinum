@@ -26,8 +26,6 @@ jobs:
 
       - name: Build wheels
         uses: joerick/cibuildwheel@v1.10.0
-        env:
-          CIBW_BUILD_VERBOSITY: 1
 
       - name: Test with pytest
         run: |

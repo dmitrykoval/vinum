@@ -8,6 +8,6 @@ requires = [
     "pybind11>=2.6.2",
     "pyarrow>=3.0.0",
     "cmake>=3.13",
-    "versioneer>=0.18",
+    "versioneer>=0.19",
 ]
 build-backend = "setuptools.build_meta"
