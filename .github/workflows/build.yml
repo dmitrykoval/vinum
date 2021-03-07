@@ -34,10 +34,6 @@ jobs:
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: ""
           CIBW_REPAIR_WHEEL_COMMAND_LINUX: "LD_LIBRARY_PATH=$LD_LIBRARY_PATH:`python -c 'import pyarrow;print(pyarrow.get_library_dirs()[0])'` auditwheel repair -w {dest_dir} {wheel}"
 
-      - name: Test with pytest
-        run: |
-          python -m pytest --cov=vinum vinum/tests
-
       - name: Upload wheels
         uses: actions/upload-artifact@v2
         with:
