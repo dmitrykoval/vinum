@@ -246,9 +246,9 @@ cmdclass = {
     "build_ext": CMakeBuild,
 }
 
-package_data = {}
+data_files = []
 if sys.platform == 'linux' and is_cibuildwheel:
-    package_data['arrow'] = _copy_arrow_libs()
+    data_files = [('.', _copy_arrow_libs())]
 
 setup(
     name=NAME,
@@ -279,5 +279,5 @@ setup(
     ],
     ext_modules=create_extensions(),
     zip_safe=False,
-    package_data=package_data,
+    data_files=data_files,
 )
