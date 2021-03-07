@@ -164,18 +164,24 @@ def _get_distutils_build_directory():
 
 
 def _copy_arrow_libs():
+    print('**> in _copy_arrow_libs')
     if is_cibuildwheel:
         copied = {lib: False for lib in pa.get_libraries()}
         for libdir in pa.get_library_dirs():
+            print(f'**> libdir: {libdir}')
             if all(copied.values()):
                 break
             for lib in pa.get_libraries():
+                print(f'**> lib: {lib}')
                 if not copied[lib]:
                     fname = f"lib{lib}.so.{pa.__version__.replace('.', '')}"
+                    print(f'**> lib fname: {fname}')
                     src_path = os.path.join(libdir, fname)
+                    print(f'**> testing source path: {src_path}')
                     if os.path.exists(src_path):
                         copyfile(src_path, os.path.join('.', fname))
                         copied[lib] = True
+                        print(f'**> copied')
 
 
 def create_extensions():

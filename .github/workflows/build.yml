@@ -32,6 +32,7 @@ jobs:
           CIBW_MANYLINUX_I686_IMAGE: manylinux2014
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: ""
           CIBW_REPAIR_WHEEL_COMMAND_LINUX: "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:`pwd`; ls -l; auditwheel repair -w {dest_dir} {wheel}"
+          CIBW_BUILD_VERBOSITY_LINUX: 1
 
       - name: Test with pytest
         run: |
