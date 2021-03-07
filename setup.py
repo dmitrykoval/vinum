@@ -11,7 +11,7 @@ from pybind11.setup_helpers import Pybind11Extension, build_ext
 import pyarrow as pa
 pa.create_library_symlinks()
 
-is_cibuildwheel = (os.environ.get('CIBUILDWHEEL') == '1')
+is_cibuildwheel = bool(os.environ.get('CIBUILDWHEEL', False))
 
 with open("README.rst", "r") as f:
     long_description = f.read()
