@@ -185,6 +185,7 @@ def _copy_arrow_libs():
                         copied[lib] = True
                         files.append(fname)
                         print(f'**> copied to {dst_path}')
+    return files
 
 
 def create_extensions():
