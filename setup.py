@@ -2,7 +2,6 @@ import os
 import sys
 import sysconfig
 import subprocess
-from shutil import copyfile
 
 from setuptools import setup, find_packages
 
@@ -163,31 +162,6 @@ def _get_distutils_build_directory():
     )
 
 
-def _copy_arrow_libs():
-    files = []
-    print('**> in _copy_arrow_libs')
-    if is_cibuildwheel:
-        copied = {lib: False for lib in pa.get_libraries()}
-        for libdir in pa.get_library_dirs():
-            print(f'**> libdir: {libdir}')
-            if all(copied.values()):
-                break
-            for lib in pa.get_libraries():
-                print(f'**> lib: {lib}')
-                if not copied[lib]:
-                    fname = f"lib{lib}.so.{pa.__version__.replace('.', '')}"
-                    print(f'**> lib fname: {fname}')
-                    src_path = os.path.join(libdir, fname)
-                    print(f'**> testing source path: {src_path}')
-                    if os.path.exists(src_path):
-                        dst_path = os.path.abspath(os.path.join('.', fname))
-                        copyfile(src_path, dst_path)
-                        copied[lib] = True
-                        files.append(fname)
-                        print(f'**> copied to {dst_path}')
-    return files
-
-
 def create_extensions():
     cpp_lib_cxx_flags = ['-fPIC']
     python_lib_cxx_flags = []
@@ -246,10 +220,6 @@ cmdclass = {
     "build_ext": CMakeBuild,
 }
 
-data_files = []
-if sys.platform == 'linux' and is_cibuildwheel:
-    data_files = [('.', _copy_arrow_libs())]
-
 setup(
     name=NAME,
     version=VERSION,
@@ -279,5 +249,4 @@ setup(
     ],
     ext_modules=create_extensions(),
     zip_safe=False,
-    data_files=data_files,
 )
