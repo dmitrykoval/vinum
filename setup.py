@@ -2,22 +2,21 @@ import os
 import sys
 import sysconfig
 import subprocess
+from shutil import copyfile
 
 from setuptools import setup, find_packages
 
 from pybind11.setup_helpers import Pybind11Extension, build_ext
 
-import versioneer
-
 import pyarrow as pa
 pa.create_library_symlinks()
 
+is_cibuildwheel = (os.environ.get('CIBUILDWHEEL') == '1')
 
 with open("README.rst", "r") as f:
     long_description = f.read()
 
 NAME = "vinum"
-# VERSION = versioneer.get_version()
 VERSION = "0.2.0"
 AUTHOR = "Dmitry Koval"
 AUTHOR_EMAIL = "dima@koval.space"
@@ -142,7 +141,7 @@ class CMakeBuild(build_ext):
             ["cmake", ext.cmake_sourcedir] + cmake_args, cwd=self.build_temp
         )
         subprocess.check_call(
-            ["cmake", "--build", "."] + build_args, cwd=self.build_temp
+            ["cmake", "--build", ".", "--clean-first"] + build_args, cwd=self.build_temp
         )
 
         # This call builds the python wrapper around vinum_cpp library
@@ -162,6 +161,21 @@ def _get_distutils_build_directory():
                        major=sys.version_info[0],
                        minor=sys.version_info[1])
     )
+
+
+def _copy_arrow_libs():
+    if is_cibuildwheel:
+        copied = {lib: False for lib in pa.get_libraries()}
+        for libdir in pa.get_library_dirs():
+            if all(copied.values()):
+                break
+            for lib in pa.get_libraries():
+                if not copied[lib]:
+                    fname = f"lib{lib}.so.{pa.__version__.replace('.', '')}"
+                    src_path = os.path.join(libdir, fname)
+                    if os.path.exists(src_path):
+                        copyfile(src_path, os.path.join('.', fname))
+                        copied[lib] = True
 
 
 def create_extensions():
@@ -194,9 +208,9 @@ def create_extensions():
     elif sys.platform == 'linux':
         python_lib_cxx_flags.append('--std=c++17')
         python_lib_cxx_flags.append('-fvisibility=hidden')
-        python_lib_linker_args.append("-Wl,-rpath,$ORIGIN")
-        python_lib_linker_args.append("-Wl,-rpath,$ORIGIN/pyarrow")
-        python_lib_linker_args.append("-Wl,-rpath,$ORIGIN/../pyarrow")
+        if not is_cibuildwheel:
+            python_lib_linker_args.append("-Wl,-rpath,$ORIGIN")
+            python_lib_linker_args.append("-Wl,-rpath,$ORIGIN/pyarrow")
         python_lib_macros = ('_GLIBCXX_USE_CXX11_ABI', '0')
         cpp_lib_cxx_flags.append('-D_GLIBCXX_USE_CXX11_ABI=0')
 
@@ -218,9 +232,12 @@ def create_extensions():
     return [cpp_lib]
 
 
-# cmdclass = versioneer.get_cmdclass()
-cmdclass = {}
-cmdclass["build_ext"] = CMakeBuild
+cmdclass = {
+    "build_ext": CMakeBuild,
+}
+
+if sys.platform == 'linux' and is_cibuildwheel:
+    _copy_arrow_libs()
 
 setup(
     name=NAME,

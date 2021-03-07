@@ -24,18 +24,13 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           pip install -r requirements-dev.txt
 
-#      - name: Build wheels
-#        uses: joerick/cibuildwheel@v1.10.0
-
-      - name: Install cibuildwheel
-        run: python -m pip install cibuildwheel==1.10.0
-
       - name: Build wheels
-        run: |
-          pip show versioneer
-          python -m cibuildwheel --output-dir wheelhouse
+        uses: joerick/cibuildwheel@v1.10.0
         env:
-          CIBW_BEFORE_BUILD: pip freeze && pip install -U versioneer
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux2014
+          CIBW_MANYLINUX_I686_IMAGE: manylinux2014
+          CIBW_REPAIR_WHEEL_COMMAND_MACOS: ""
+          CIBW_REPAIR_WHEEL_COMMAND_LINUX: "export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:\`pwd\`; auditwheel repair -w {dest_dir} {wheel}"
 
       - name: Test with pytest
         run: |

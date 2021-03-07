@@ -37,9 +37,7 @@ from vinum.api.table import Table  # noqa: F401
 from vinum.api.stream_reader import StreamReader  # noqa: F401
 
 
-from ._version import get_versions
-__version__ = get_versions()['version']
-del get_versions
+__version__ = '0.2.0'
 
 
 __doc__ = """
