@@ -164,6 +164,7 @@ def _get_distutils_build_directory():
 
 
 def _copy_arrow_libs():
+    files = []
     print('**> in _copy_arrow_libs')
     if is_cibuildwheel:
         copied = {lib: False for lib in pa.get_libraries()}
@@ -182,6 +183,7 @@ def _copy_arrow_libs():
                         dst_path = os.path.abspath(os.path.join('.', fname))
                         copyfile(src_path, dst_path)
                         copied[lib] = True
+                        files.append(fname)
                         print(f'**> copied to {dst_path}')
 
 
@@ -243,8 +245,9 @@ cmdclass = {
     "build_ext": CMakeBuild,
 }
 
+package_data = {}
 if sys.platform == 'linux' and is_cibuildwheel:
-    _copy_arrow_libs()
+    package_data['arrow'] = _copy_arrow_libs()
 
 setup(
     name=NAME,
@@ -275,4 +278,5 @@ setup(
     ],
     ext_modules=create_extensions(),
     zip_safe=False,
+    package_data=package_data,
 )
