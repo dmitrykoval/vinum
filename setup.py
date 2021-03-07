@@ -179,9 +179,10 @@ def _copy_arrow_libs():
                     src_path = os.path.join(libdir, fname)
                     print(f'**> testing source path: {src_path}')
                     if os.path.exists(src_path):
-                        copyfile(src_path, os.path.join('.', fname))
+                        dst_path = os.path.abspath(os.path.join('.', fname))
+                        copyfile(src_path, dst_path)
                         copied[lib] = True
-                        print(f'**> copied')
+                        print(f'**> copied to {dst_path}')
 
 
 def create_extensions():
