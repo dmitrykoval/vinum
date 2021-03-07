@@ -31,7 +31,7 @@ jobs:
           CIBW_BUILD: cp37-* cp38-* cp39-*
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux2014
           CIBW_ARCHS_LINUX: "x86_64"
-          CIBW_REPAIR_WHEEL_COMMAND_MACOS: ""
+#          CIBW_REPAIR_WHEEL_COMMAND_MACOS: ""
           CIBW_REPAIR_WHEEL_COMMAND_LINUX: "LD_LIBRARY_PATH=$LD_LIBRARY_PATH:`python -c 'import pyarrow;print(pyarrow.get_library_dirs()[0])'` auditwheel repair -w {dest_dir} {wheel}"
 
       - name: Upload wheels
