@@ -9,15 +9,14 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-20.04, macos-10.15]
-        python-version: [3.7, 3.8]
 
     steps:
       - uses: actions/checkout@v2
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python 3.8
         uses: actions/setup-python@v2
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: 3.8
 
       - name: Install dependencies
         run: |
@@ -26,10 +25,13 @@ jobs:
 
       - name: Build wheels
         uses: joerick/cibuildwheel@v1.10.0
-
-      - name: Test with pytest
-        run: |
-          python -m pytest --cov=vinum vinum/tests
+        env:
+          CIBUILDWHEEL: 1
+          CIBW_BEFORE_BUILD_LINUX: pip install pyarrow
+          CIBW_BUILD: cp37-* cp38-* cp39-*
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux2014
+          CIBW_ARCHS_LINUX: "x86_64"
+          CIBW_REPAIR_WHEEL_COMMAND_LINUX: "LD_LIBRARY_PATH=$LD_LIBRARY_PATH:`python -c 'import pyarrow;print(pyarrow.get_library_dirs()[0])'` auditwheel repair -w {dest_dir} {wheel}"
 
       - name: Upload wheels
         uses: actions/upload-artifact@v2

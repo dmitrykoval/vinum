@@ -1,5 +1,3 @@
 include vinum_cpp/CMakeLists.txt
 recursive-include vinum_cpp/src *
-
-include versioneer.py
 include vinum/_version.py

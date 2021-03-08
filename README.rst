@@ -194,11 +194,6 @@ Documentation
 * `Getting started <https://vinum.readthedocs.io/en/latest/getting_started.html>`_
 
 
-Primary use-cases
-=================
-??
-
-
 What Vinum is not
 =================
 Vinum is not a Database Management System, there are no plans to support
