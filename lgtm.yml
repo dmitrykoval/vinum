@@ -1,3 +1,14 @@
+extraction:
+  cpp:
+     prepare:
+        packages:
+          - cmake
+     configure:
+        command:
+        - cmake .
+     index:
+        build_command:
+        - cmake --build . --target vinum_cpp
 path_classifiers:
   src:
     - exclude: "_version.py"
