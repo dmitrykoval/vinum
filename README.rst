@@ -2,14 +2,14 @@
 Vinum
 *****
 
-|PyPi|_ |Travis|_ |Grade_Python|_ |Codecov|_
+|PyPi|_ |CI|_ |Grade_Python|_ |Codecov|_
 
 
 .. |PyPi| image:: https://img.shields.io/pypi/v/vinum.svg
 .. _PyPi: https://pypi.org/project/vinum/
 
-.. |Travis| image:: https://travis-ci.com/dmitrykoval/vinum.svg?branch=main
-.. _Travis: https://travis-ci.com/dmitrykoval/vinum
+.. |CI| image:: https://github.com/dmitrykoval/vinum/actions/workflows/ci.yml/badge.svg
+.. _CI: https://github.com/dmitrykoval/vinum/actions/workflows/ci.yml
 
 .. |Grade_Python| image:: https://img.shields.io/lgtm/grade/python/g/dmitrykoval/vinum.svg?logo=lgtm&logoWidth=18
 .. _Grade_Python: https://lgtm.com/projects/g/dmitrykoval/vinum/context:python
