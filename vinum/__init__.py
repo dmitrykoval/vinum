@@ -36,12 +36,10 @@ from vinum.io.arrow import (  # noqa: F401
 from vinum.api.table import Table  # noqa: F401
 from vinum.api.stream_reader import StreamReader  # noqa: F401
 
-
-__version__ = '0.2.0'
-
+from vinum._version import __version__
 
 __doc__ = """
-**Vinum** is a SQL processor written in pure Python, designed for
+**Vinum** is a SQL processor written for Python, designed for
 data analysis workflows and in-memory analytics. 
 Conceptually, Vinum's design goal is to provide deeper integration of 
 Python data analysis tools such as `Numpy <https://numpy.org/>`_,

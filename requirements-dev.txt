@@ -1,4 +1,5 @@
 flake8
+dunamai
 moz-sql-parser==3.32.20026
 mypy
 numpy>=1.19.0
@@ -13,5 +14,4 @@ requests
 setuptools
 sphinx
 twine
-versioneer>=0.19
 wheel
