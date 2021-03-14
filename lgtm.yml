@@ -5,10 +5,10 @@ extraction:
           - cmake
      configure:
         command:
-        - cmake .
+        - vinum_cpp/cmake .
      index:
         build_command:
-        - cmake --build . --target vinum_cpp
+        - vinum_cpp/cmake --build . --target vinum_cpp
 path_classifiers:
   src:
     - exclude: "_version.py"
