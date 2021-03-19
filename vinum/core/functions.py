@@ -8,14 +8,17 @@ import pyarrow.compute as pc
 
 from vinum._typing import AnyArrayLike, OperatorArgument
 from vinum.arrow.arrow_table import ArrowTable
-from vinum.core.base import Operator, VectorizedExpression
+from vinum.core.base import VectorizedExpression
 
 from vinum.errors import OperatorError
 from vinum.parser.query import Column, Literal
 from vinum.util.util import (
     ensure_is_array,
     is_numpy_array,
-    is_numpy_str_array, is_pyarrow_array, is_pyarrow_string, is_array_type,
+    is_numpy_str_array,
+    is_pyarrow_array,
+    is_pyarrow_string,
+    is_array_type,
 )
 
 

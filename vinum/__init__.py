@@ -52,9 +52,11 @@ _batch_size = 10000
 
 
 def get_batch_size():
+    global _batch_size
     return _batch_size
 
 
 def set_batch_size(batch_size: int):
+    global _batch_size
     _batch_size = batch_size
 

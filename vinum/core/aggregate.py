@@ -1,6 +1,6 @@
 import pyarrow as pa
 
-from typing import Iterable, Union
+from typing import Iterable
 
 import vinum_lib
 

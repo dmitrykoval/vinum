@@ -402,9 +402,6 @@ class QueryPlanner:
             group_by_col_names = set()
             for expr in group_by_exprs:
                 if is_expression(expr):
-                    if not expr.is_shared():
-                        inner_col_id = str(id(expr))
-                        expr.set_shared_id(inner_col_id)
                     inner_agg_exprs.append(expr)
                     expr = Column(expr.get_shared_id())
                 group_by.append(expr)

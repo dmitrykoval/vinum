@@ -206,9 +206,9 @@ class Binder:
         """
         Test if query contains aggregate functions.
         """
-        for expr in select_expressions:
-            if is_expression(expr):
-                for expr in flatten_expressions_tree(expr):
+        for sel_expr in select_expressions:
+            if is_expression(sel_expr):
+                for expr in flatten_expressions_tree(sel_expr):
                     if is_aggregate_func(expr.function_name):
                         return True
         return False
