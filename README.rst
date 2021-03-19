@@ -41,11 +41,11 @@ Key Features:
   as UDFs, including native Python, NumPy, Pandas, etc.
 
 * Vinum's execution model doesn't require input datasets to fit into memory,
-  as it operates on the stream batches. However, the final result is fully
+  as it operates on the stream batches. However, final result is fully
   materialized in memory.
 
 * Written in the mix of C++ and Python and built from ground up on top of
-  `Apache Arrow <https://arrow.apache.org/>`, which provides the
+  `Apache Arrow <https://arrow.apache.org/>`_, which provides the
   foundation for moving data and enables minimal
   overhead for transferring data to and from Numpy and Pandas.
 
@@ -55,7 +55,7 @@ Architecture
 .. image:: https://github.com/dmitrykoval/vinum/raw/main/doc/source/_static/architecture.png
 
 Vinum uses PostgresSQL parser provided by
-`pglast <https://github.com/lelit/pglast>` project.
+`pglast <https://github.com/lelit/pglast>`_ project.
 
 Query planning and execution phases are implemented in Python,
 while all physical operators are either implemented in C++ or use
@@ -63,7 +63,7 @@ native kernels from Arrow or NumPy. The only exception to this is
 native python UDFs, which are running within interpreted Python.
 
 Query execution model is based on the vectorized model described in the prolific
-paper by P. A. Boncz, M. Zukowski, and N. Nes.
+paper by
 `P. A. Boncz, M. Zukowski, and N. Nes. Monetdb/x100: Hyper-pipelining query
 execution. In CIDR, 2005. <https://ir.cwi.nl/pub/16497/16497B.pdf>`_
 
