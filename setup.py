@@ -10,13 +10,15 @@ from pybind11.setup_helpers import Pybind11Extension, build_ext
 import pyarrow as pa
 pa.create_library_symlinks()
 
+from vinum._version import __version__
+
 is_cibuildwheel = bool(os.environ.get('CIBUILDWHEEL', False))
 
 with open("README.rst", "r") as f:
     long_description = f.read()
 
 NAME = "vinum"
-VERSION = "0.2.0"
+VERSION = __version__
 AUTHOR = "Dmitry Koval"
 AUTHOR_EMAIL = "dima@koval.space"
 DESCRIPTION = (
