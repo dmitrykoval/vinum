@@ -340,10 +340,10 @@ class FunctionType(Enum):
 
 _default_functions_registry = {
     # Type conversion
-    'bool': (BoolCastFunction, FunctionType.CLASS),
-    'float': (FloatCastFunction, FunctionType.CLASS),
-    'int': (IntCastFunction, FunctionType.CLASS),
-    'str': (StringCastFunction, FunctionType.CLASS),
+    'to_bool': (BoolCastFunction, FunctionType.CLASS),
+    'to_float': (FloatCastFunction, FunctionType.CLASS),
+    'to_int': (IntCastFunction, FunctionType.CLASS),
+    'to_str': (StringCastFunction, FunctionType.CLASS),
 
     # Math
     'abs': (np.absolute, FunctionType.NUMPY),
@@ -355,6 +355,10 @@ _default_functions_registry = {
     'log': (np.log, FunctionType.NUMPY),
     'log2': (np.log2, FunctionType.NUMPY),
     'log10': (np.log10, FunctionType.NUMPY),
+
+    # Math constants
+    'pi': (lambda: np.pi, FunctionType.NUMPY),
+    'e': (lambda: np.e, FunctionType.NUMPY),
 
     # Datetime
     'date': (DateFunction, FunctionType.CLASS),
@@ -371,6 +375,7 @@ _default_functions_registry = {
 
 
 AGG_FUNCS = {
+    'count_star',
     'count',
     'min',
     'max',

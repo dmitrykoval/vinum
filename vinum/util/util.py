@@ -1,11 +1,21 @@
 import numpy as np
 import pyarrow as pa
 
-from typing import Iterable, Tuple, Any, TYPE_CHECKING, FrozenSet, List
+from typing import (
+    Iterable,
+    Tuple,
+    Any,
+    TYPE_CHECKING,
+    FrozenSet,
+    List,
+    Callable,
+    Union,
+)
+
 
 if TYPE_CHECKING:
     from vinum._typing import QueryBaseType
-    from vinum.parser.query import Column
+    from vinum.parser.query import Column, Expression
 
 TREE_INDENT_SYMBOL = '  '
 
@@ -16,17 +26,12 @@ def find_all_columns_recursively(
     """
     Traverse Expressions and return a set of all referenced Columns.
 
-    Null type is one of:
-    * None python type
-    * numpy.nan
-    * numpy.datetime64('nat')
-
     Parameters
     ----------
     expressions : Tuple['QueryBaseType', ...]
         Expressions to traverse.
     skip_shared_expressions : bool
-        Expressions to traverse.
+        Whether to skip shared expressions
 
     Returns
     -------
@@ -41,7 +46,7 @@ def find_all_columns_recursively(
     for select_expr in expressions:  # type: Any
         if is_column(select_expr):
             columns.add(select_expr)
-        elif is_expression(select_expr) or is_operator(select_expr):
+        elif is_expression(select_expr):
             if skip_shared_expressions and select_expr.is_shared():
                 continue
             columns |= find_all_columns_recursively(
@@ -49,6 +54,42 @@ def find_all_columns_recursively(
                 skip_shared_expressions=skip_shared_expressions
             )
     return frozenset(columns)
+
+
+def traverse_exprs(
+        expressions: Union['QueryBaseType', Tuple['QueryBaseType', ...]]
+) -> Tuple['Expression', ...]:
+    """
+    Traverse Expressions and return a list of all Expression.
+
+    Parameters
+    ----------
+    expressions : Tuple['QueryBaseType', ...]
+        Expressions to traverse.
+
+    Returns
+    -------
+    Tuple['Expression']
+        Returns the traversal of the expressions tree.
+    """
+    if not expressions:
+        return tuple()
+    if not is_iterable(expressions):
+        expressions = [expressions]
+
+    traversal = []
+    for expr in expressions:  # type: Any
+        if is_expression(expr):
+            traversal.append(expr)
+            traversal.extend(traverse_exprs(expr.arguments))
+    return tuple(traversal)
+
+
+def traverse_exprs_tree(expr: 'QueryBaseType', apply_func: Callable):
+    if is_expression(expr):
+        for arg in expr.arguments:
+            traverse_exprs_tree(arg, apply_func)
+    apply_func(expr)
 
 
 def append_flat(append_to: List, append_what: Any):
@@ -79,9 +120,9 @@ def is_expression(obj: Any) -> bool:
     return isinstance(obj, Expression)
 
 
-def is_operator(obj: Any) -> bool:
-    from vinum.core.base import Operator
-    return isinstance(obj, Operator)
+def is_vect_expression(obj: Any) -> bool:
+    from vinum.core.base import VectorizedExpression
+    return isinstance(obj, VectorizedExpression)
 
 
 def is_numpy_array(array: Any) -> bool:
@@ -99,6 +140,9 @@ def is_pyarrow_array(array: Any) -> bool:
 def is_pyarrow_string(obj: Any) -> bool:
     return isinstance(obj, pa.StringScalar)
 
+
+def is_iterable(obj: Any) -> bool:
+    return isinstance(obj, Iterable) and not isinstance(obj, str)
 
 def is_array_type(obj: Any) -> bool:
     return (isinstance(obj, list)

@@ -1,6 +1,6 @@
 # flake8: noqa
 
-hard_dependencies = ("pyarrow", "numpy", "moz_sql_parser")
+hard_dependencies = ("pyarrow", "numpy", "pglast")
 missing_dependencies = []
 
 for dependency in hard_dependencies:

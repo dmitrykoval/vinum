@@ -8,6 +8,7 @@ from vinum.arrow.arrow_table import ArrowTable
 from vinum.api.table import Table
 from vinum.parser.parser import parser_factory
 from vinum.parser.query import Column, Literal
+from vinum.planner.binder import Binder
 
 
 def rows_to_columns_dict(rows, column_names):
@@ -102,9 +103,9 @@ def create_null_test_data():
 
 
 def create_query_ast(query, test_arrow_table):
-    return parser_factory(query,
-                          test_arrow_table.get_schema()).generate_query_tree()
-
+    query = parser_factory(query,
+                           test_arrow_table.get_schema()).parse()
+    return Binder.bind(query)
 
 def _test_column(column, name, alias=None):
     assert column is not None

@@ -181,7 +181,7 @@ class Table:
 
     @staticmethod
     def _create_query_tree(query, schema: pa.Schema) -> Query:
-        return parser_factory(query, schema).generate_query_tree()
+        return parser_factory(query, schema).parse()
 
     @staticmethod
     def _create_plan_dag(query_tree: Query,

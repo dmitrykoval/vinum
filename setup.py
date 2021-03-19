@@ -32,7 +32,7 @@ PROJECT_URLS = {
 INSTALL_REQUIRES = [
     "pyarrow >= 3.0.0",
     "numpy >= 1.19.0",
-    "moz_sql_parser == 3.32.20026"
+    "pglast == 1.17",
 ]
 VINUM_CPP_LIB_NAME = 'vinum_cpp'
 

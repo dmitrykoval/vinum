@@ -110,7 +110,7 @@ class VectorizedExpression(BaseArgumentsProcessor,
         already executed and the results are available.
         """
         processed_args = self._process_arguments(self._arguments, batch)
-        if self._function and processed_args:
+        if self._function:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=RuntimeWarning)
                 if self._is_binary_func:
@@ -123,6 +123,14 @@ class VectorizedExpression(BaseArgumentsProcessor,
             result = self._expr_kernel(processed_args, batch)
 
         return self._post_process_result(result)
+
+    @property
+    def arguments(self) -> Tuple[OperatorArgument, ...]:
+        return self._arguments
+
+    @arguments.setter
+    def arguments(self, arguments: Iterable[OperatorArgument]) -> None:
+        self._arguments = tuple(arguments)
 
     def _expr_kernel(self,
                      arguments: Any,

@@ -96,6 +96,12 @@ queries = (
      }),
 
     (test_table,
+     "select id # timestamp as res from t",
+     {
+         'res': (1596899420, 1596999420, 1597899420, 1598899428),
+     }),
+
+    (test_table,
      "select city_from || city_to as res from t",
      {
          'res': ('BerlinMunich', 'MunichRiva',
@@ -310,7 +316,7 @@ queries = (
      'select count(*), sum(total), vendor_id from t group by vendor_id '
      'order by vendor_id',
      {
-         'count': (2, 1, 1),
+         'count_star': (2, 1, 1),
          'sum': (35.83, 143.15, 53.1),
          'vendor_id': (1, 2, 3)
      }),
@@ -344,11 +350,11 @@ queries = (
       "group by vendor_id having count(*) > 1 order by count(*)"),
      {
          'vendor_id': (2, 1),
-         'count': (2, 5),
+         'count_star': (2, 5),
      }),
 
     (test_groupby_table,
-     'select city_from, int(np.sin(lat) * 100000) % 11 as grp_exp, '
+     'select city_from, to_int(np.sin(lat) * 100000) % 11 as grp_exp, '
      ' count(*), min(tax) '
      'from t '
      'group by city_from, grp_exp '
@@ -358,7 +364,7 @@ queries = (
      {
          'city_from': ('San Francisco', 'Riva'),
          'grp_exp': (2, 5),
-         'count': (1, 1),
+         'count_star': (1, 1),
          'min': (1.69, 1.59),
      }),
 
@@ -377,7 +383,7 @@ groupby_queries = (
       ' avg(total) from t group by vendor_id order by vendor_id'),
      {
          'vendor_id': (1, 2, 3),
-         'count': (5, 2, 1),
+         'count_star': (5, 2, 1),
          'min': (0.43, 2.0, 1.69),
          'max': (11, 5.34, 5.3),
          'sum': (105.06, 156.3, 53.1),
@@ -385,14 +391,14 @@ groupby_queries = (
      }),
 
     (test_groupby_table,
-     ('select city_from, int(total) % 7 as mod, count(*) '
-      'from t group by city_from, int(total) % 7 '
+     ('select city_from, to_int(total) % 7 as mod, count(*) '
+      'from t group by city_from, to_int(total) % 7 '
       'order by city_from, mod'),
      {
          'city_from': ('Berlin', 'Berlin', 'Munich', 'Munich',
                        'Riva', 'San Francisco'),
          'mod': (2, 5, 3, 6, 5, 4),
-         'count': (2, 2, 1, 1, 1, 1),
+         'count_star': (2, 2, 1, 1, 1, 1),
      }),
 
     (test_groupby_table,
@@ -401,11 +407,11 @@ groupby_queries = (
      {
          'city_from': ('Berlin', 'Berlin', 'Munich', 'Riva', 'San Francisco'),
          'city_to': ('Riva', 'Munich', 'Riva', 'Naples', 'Naples'),
-         'count': (1, 3, 2, 1, 1),
+         'count_star': (1, 3, 2, 1, 1),
      }),
 
     (test_groupby_table,
-     'select city_from, int(np.sin(lat) * 100000) % 11 as grp_exp, '
+     'select city_from, to_int(np.sin(lat) * 100000) % 11 as grp_exp, '
      ' count(*), min(tax) '
      'from t '
      'group by city_from, grp_exp '
@@ -413,7 +419,7 @@ groupby_queries = (
      {
          'city_from': ('Berlin', 'Berlin', 'Munich', 'Riva', 'San Francisco'),
          'grp_exp': (6, 5, 8, 5, 2),
-         'count': (2, 2, 2, 1, 1),
+         'count_star': (2, 2, 2, 1, 1),
          'min': (0.43, 1.59, 2.0, 1.59, 1.69),
      }),
 
@@ -422,8 +428,8 @@ groupby_queries = (
       'group by city_from order by city_from'),
      {
          'city_from': ('Berlin', 'Munich', 'Riva', 'San Francisco'),
+         'count_star': (4, 2, 1, 1),
          'count': (4, 2, 1, 1),
-         'count_1': (4, 2, 1, 1),
      }),
 
     (test_groupby_table,
@@ -440,7 +446,7 @@ groupby_queries = (
       'where tax > 1 group by city_from, city_to order by city_from, city_to'),
      {
          'city_from': ('Berlin', 'Berlin', 'Munich', 'Riva', 'San Francisco'),
-         'count': (1, 1, 2, 1, 1),
+         'count_star': (1, 1, 2, 1, 1),
      }),
 
     (test_groupby_table,
@@ -489,11 +495,11 @@ groupby_queries = (
      "group by city_from having city_from='Berlin'",
      {
          'city_from': ('Berlin',),
-         'count': (4,),
+         'count_star': (4,),
      }),
 
     (test_groupby_table,
-     'select city_from, int(np.sin(lat) * 100000) % 11 as grp_exp, '
+     'select city_from, to_int(np.sin(lat) * 100000) % 11 as grp_exp, '
      ' count(*), min(tax) '
      'from t '
      'group by city_from, grp_exp '
@@ -502,7 +508,7 @@ groupby_queries = (
      {
          'city_from': ('Berlin', 'Berlin', 'Riva'),
          'grp_exp': (6, 5, 5),
-         'count': (2, 2, 1),
+         'count_star': (2, 2, 1),
          'min': (0.43, 1.59, 1.59),
      }),
 
@@ -529,7 +535,7 @@ groupby_queries = (
      "group by vendor_id having vendor_id=1",
      {
          'vendor_id': (1, ),
-         'count': (5, ),
+         'count_star': (5, ),
      }),
 
     (test_groupby_table,
@@ -538,7 +544,7 @@ groupby_queries = (
      "order by vendor_id",
      {
          'vendor_id': (1, 2),
-         'count': (5, 2),
+         'count_star': (5, 2),
      }),
 
     (test_groupby_table,
@@ -546,7 +552,7 @@ groupby_queries = (
      "group by vendor_id having count(*) = 5",
      {
          'vendor_id': (1, ),
-         'count': (5,),
+         'count_star': (5,),
      }),
 
     (test_groupby_table,
@@ -555,7 +561,7 @@ groupby_queries = (
      "order by vendor_id",
      {
          'vendor_id': (1, 2),
-         'count': (5, 2),
+         'count_star': (5, 2),
      }),
 
     (test_groupby_table,
@@ -604,6 +610,15 @@ groupby_queries = (
          'max_total': (33.40, 143.15, 33.4, 53.1),
          'avg_total': (17.915, 78.15, 33.4, 53.1),
          'sum_total': (71.66, 156.2999, 33.4, 53.1),
+     }),
+
+    (test_groupby_table,
+     "select vendor_id, sum(tax+tip) from t "
+     "group by vendor_id having sum(tax+tip) * 2 > 5+9 "
+     "order by vendor_id",
+     {
+         'vendor_id': (1, 2),
+         'sum': (40.03, 13.68),
      }),
 
 )
@@ -710,110 +725,128 @@ orderby_queries = (
          'id': (4, 2, 6, 8, 1, 3, 5, 7),
      }),
 
+    (test_groupby_table,
+     """SELECT 
+            city_from, 
+            sum(total), 
+            np.square(sum(total)), 
+            np.log(sum(total)*100), 
+            avg(tax*3)-10 
+            FROM t 
+            GROUP BY city_from
+            ORDER BY city_from""",
+     {
+         'city_from': ('Berlin', 'Munich', 'Riva', 'San Francisco'),
+         'sum': (71.66, 156.3, 33.4, 53.1),
+         'np.square': (5135.1556, 24429.69, 1115.56, 2819.61),
+         'np.log': (8.877103, 9.656947, 8.113726, 8.577347),
+         'col_0': (-6.97, -4.0, -5.23, -4.93),
+     }),
+
 )
 
 built_in_functions = (
 
     (test_groupby_table,
-     "select bool(5) from t",
+     "select to_bool(5) from t",
      {
-         'bool': (True,),
+         'to_bool': (True,),
      }),
 
     (test_groupby_table,
-     "select bool(0) from t",
+     "select to_bool(0) from t",
      {
-         'bool': (False,),
+         'to_bool': (False,),
      }),
 
     (test_groupby_table,
-     "select float('3.7') from t",
+     "select to_float('3.7') from t",
      {
-         'float': (3.7,),
+         'to_float': (3.7,),
      }),
 
     (test_groupby_table,
-     "select float(1099511627776.757) from t",
+     "select to_float(1099511627776.757) from t",
      {
-         'float': (1099511627776.757,),
+         'to_float': (1099511627776.757,),
      }),
 
     (test_groupby_table,
-     "select float(3) from t",
+     "select to_float(3) from t",
      {
-         'float': (3.0,),
+         'to_float': (3.0,),
      }),
 
     (test_groupby_table,
-     "select int(3.5) from t",
+     "select to_int(3.5) from t",
      {
-         'int': (3,),
+         'to_int': (3,),
      }),
 
     (test_groupby_table,
-     "select int('7') from t",
+     "select to_int('7') from t",
      {
-         'int': (7,),
+         'to_int': (7,),
      }),
 
     (test_groupby_table,
-     "select int('1', '2', '3') from t",
+     "select to_int('1', '2', '3') from t",
      {
-         'int': (1, 2, 3),
+         'to_int': (1, 2, 3),
      }),
 
     (test_groupby_table,
-     "select int(1099511627776.375) from t",
+     "select to_int(1099511627776.375) from t",
      {
-         'int': (1099511627776,),
+         'to_int': (1099511627776,),
      }),
 
     (test_groupby_table,
-     "select str(1099511627776.375) from t",
+     "select to_str(1099511627776.375) from t",
      {
-         'str': ('1099511627776.375',),
+         'to_str': ('1099511627776.375',),
      }),
 
     (test_groupby_table,
-     "select str(17) from t",
+     "select to_str(17) from t",
      {
-         'str': ('17',),
+         'to_str': ('17',),
      }),
 
     (test_groupby_table,
-     "select str('st') from t",
+     "select to_str('st') from t",
      {
-         'str': ('st',),
+         'to_str': ('st',),
      }),
 
     (test_groupby_table,
-     "select bool(total) from t",
+     "select to_bool(total) from t",
      {
-         'bool': (True, True, True, True, True, True, True, True),
+         'to_bool': (True, True, True, True, True, True, True, True),
      }),
 
     (test_groupby_table,
-     "select bool(int(tax)) from t",
+     "select to_bool(to_int(tax)) from t",
      {
-         'bool': (False, True, True, True, True, True, True, False),
+         'to_bool': (False, True, True, True, True, True, True, False),
      }),
 
     (test_groupby_table,
-     "select float(id) from t",
+     "select to_float(id) from t",
      {
-         'float': (1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0),
+         'to_float': (1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0),
      }),
 
     (test_groupby_table,
-     "select int(total) from t",
+     "select to_int(total) from t",
      {
-         'int': (2, 143, 33, 53, 33, 13, 33, 2),
+         'to_int': (2, 143, 33, 53, 33, 13, 33, 2),
      }),
 
     (test_groupby_table,
-     "select str(total) from t",
+     "select to_str(total) from t",
      {
-         'str': ('2.43', '143.15', '33.4', '53.1', '33.4', '13.15',
+         'to_str': ('2.43', '143.15', '33.4', '53.1', '33.4', '13.15',
                  '33.4', '2.43'),
      }),
 
@@ -865,13 +898,13 @@ math_functions = (
      }),
 
     (test_groupby_table,
-     "select sin(np.pi / 2)",
+     "select sin(pi() / 2)",
      {
          'sin': (1,),
      }),
 
     (test_groupby_table,
-     "select tan(np.pi / 4)",
+     "select tan(pi() / 4)",
      {
          'tan': (1,),
      }),
@@ -883,7 +916,7 @@ math_functions = (
      }),
 
     (test_groupby_table,
-     "select log(power(np.e, 3))",
+     "select log(power(e(), 3))",
      {
          'log': (3,),
      }),
@@ -1320,31 +1353,31 @@ null_data = (
      }),
 
     (test_table_null,
-     "select id from t order by float(is_vendor)",
+     "select id from t order by to_float(is_vendor)",
      {
          'id': (3, 1, 2, 5, 4, 6, 7, 8)
      }),
 
     (test_table_null,
-     "select id from t order by float(is_vendor) desc, lng desc",
+     "select id from t order by to_float(is_vendor) desc, lng desc",
      {
          'id': (5, 1, 2, 3, 4, 7, 8, 6)
      }),
 
     (test_table_null,
-     "select id from t order by name, float(is_vendor), lng",
+     "select id from t order by name, to_float(is_vendor), lng",
      {
          'id': (1, 8, 6, 3, 7, 4, 2, 5)
      }),
 
     (test_table_null,
-     "select id from t order by name desc, float(is_vendor) desc, lng desc",
+     "select id from t order by name desc, to_float(is_vendor) desc, lng desc",
      {
          'id': (3, 4, 7, 6, 1, 8, 5, 2)
      }),
 
     (test_table_null,
-     "select id from t order by name desc, float(is_vendor) desc, np.log(lng) desc",
+     "select id from t order by name desc, to_float(is_vendor) desc, np.log(lng) desc",
      {
          'id': (3, 4, 7, 6, 1, 8, 5, 2)
      }),

@@ -1,10 +1,10 @@
 flake8
 dunamai
-moz-sql-parser==3.32.20026
 mypy
 numpy>=1.19.0
 numpydoc
 pandas
+pglast==1.17
 pyarrow>=3.0.0
 pybind11>=2.6.2
 pydata-sphinx-theme
