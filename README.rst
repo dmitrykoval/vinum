@@ -34,11 +34,11 @@ Key Features:
 
 * Vinum is running inside of the host Python process and has a hybrid query
   execution model - whenever possible it would prefer native compiled
-  version of operators and only executes python interpreted code where
+  version of operators and only executes Python interpreted code where
   strictly necessary (ie. for native Python UDFs).
 
 * Allows to use functions available within the host Python interpreter
-  as UDFs, including native Python, NumPy, Pandas, etc.
+  as UDFs, including native Python, NumPy, etc.
 
 * Vinum's execution model doesn't require input datasets to fit into memory,
   as it operates on the stream batches. However, final result is fully
@@ -57,7 +57,7 @@ Architecture
 Vinum uses PostgresSQL parser provided by
 `pglast <https://github.com/lelit/pglast>`_ project.
 
-Query planning and execution phases are implemented in Python,
+Query planner and executor are implemented in Python,
 while all the physical operators are either implemented in C++ or use
 compiled vectorized kernels from Arrow or NumPy. The only exception to this is
 native python UDFs, which are running within interpreted Python.
