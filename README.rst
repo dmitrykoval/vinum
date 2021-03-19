@@ -58,8 +58,8 @@ Vinum uses PostgresSQL parser provided by
 `pglast <https://github.com/lelit/pglast>`_ project.
 
 Query planning and execution phases are implemented in Python,
-while all physical operators are either implemented in C++ or use
-native kernels from Arrow or NumPy. The only exception to this is
+while all the physical operators are either implemented in C++ or use
+compiled vectorized kernels from Arrow or NumPy. The only exception to this is
 native python UDFs, which are running within interpreted Python.
 
 Query execution model is based on the vectorized model described in the prolific
