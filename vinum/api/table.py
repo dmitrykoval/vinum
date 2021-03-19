@@ -245,23 +245,23 @@ class Table:
         Running queries on a csv file:
 
         >>> import vinum as vn
-        >>> tbl = vn.read_csv('test.csv')
-        >>> res_tbl = tbl.sql('select * from t limit 3')
+        >>> tbl = vn.read_csv('taxi.csv')
+        >>> res_tbl = tbl.sql('select key, fare_amount from t limit 3')
         >>> res_tbl.to_pandas()
-           id                            ts        lat        lng  fare
-        0   0   2009-06-15 17:26:21.0000001  40.721319 -73.844311   4.5
-        1   1   2010-01-05 16:52:16.0000002  40.711303 -74.016048  16.9
-        2   2  2011-08-18 00:35:00.00000049  40.761270 -73.982738   5.7
+                                    key  fare_amount
+        0   2009-06-15 17:26:21.0000001          4.5
+        1   2010-01-05 16:52:16.0000002         16.9
+        2  2011-08-18 00:35:00.00000049          5.7
 
         >>> import vinum as vn
-        >>> tbl = vn.read_csv('test.csv')
-        >>> res_tbl = tbl.sql('select int(fare) fare, count(*) from t '
-        ...                   'group by int(fare) order by fare limit 3')
+        >>> tbl = vn.read_csv('taxi.csv')
+        >>> res_tbl = tbl.sql('select to_int(fare_amount) fare, count(*) from t '
+        ...                   'group by fare order by fare limit 3')
         >>> res_tbl.to_pandas()
-           fare  count
-        0     3      3
-        1     4     11
-        2     5     19
+           fare  count_star
+        0    -5           1
+        1    -3           1
+        2    -2           4
         """
         query_table = self._arrow_table
 
@@ -335,21 +335,22 @@ class Table:
         Running queries on a csv file:
 
         >>> import vinum as vn
-        >>> tbl = vn.read_csv('test.csv')
-        >>> tbl.sql_pd('select * from t limit 3')
-           id                            ts        lat        lng  fare
-        0   0   2009-06-15 17:26:21.0000001  40.721319 -73.844311   4.5
-        1   1   2010-01-05 16:52:16.0000002  40.711303 -74.016048  16.9
-        2   2  2011-08-18 00:35:00.00000049  40.761270 -73.982738   5.7
+        >>> tbl = vn.read_csv('taxi.csv')
+        >>> tbl.sql_pd('select key, passenger_count from t limit 3')
+                                    key  passenger_count
+        0   2009-06-15 17:26:21.0000001                1
+        1   2010-01-05 16:52:16.0000002                1
+        2  2011-08-18 00:35:00.00000049                2
 
         >>> import vinum as vn
-        >>> tbl = vn.read_csv('test.csv')
-        >>> tbl.sql_pd('select int(fare) fare, count(*) from t '
-        ...            'group by int(fare) order by fare limit 3')
-           fare  count
-        0     3      3
-        1     4     11
-        2     5     19
+        >>> tbl = vn.read_csv('taxi.csv')
+        >>> res_tbl = tbl.sql('select to_int(fare_amount) fare, count(*) from t '
+        ...                   'group by fare order by fare limit 3')
+        >>> res_tbl.to_pandas()
+           fare  count_star
+        0    -5           1
+        1    -3           1
+        2    -2           4
         """
 
         return self.sql(query).to_pandas()
@@ -380,25 +381,25 @@ class Table:
         Examples
         --------
         >>> import vinum as vn
-        >>> tbl = vn.read_csv('test.csv')
-        >>> tbl.explain('select int(fare) fare, count(*) from t '
-        ...             'group by int(fare) order by fare limit 3')
-        Query DAG:
-           Operator: SerialExecutorOperator
-            Operator: DropTableColumnsOperator
-            Operator: UpdateTableOperator
-              Operator: CombineGroupByGroupsOperator
-                Operator: TakeGroupByColumnValuesOperator
-                  Operator: HashSplitGroupByOperator
-                    Operator: IntCastFunction
-                        Column: fare
-                Operator: CountOperator
-                    Literal: *
-                Operator: TakeGroupByColumnValuesOperator
-            Operator: SortOperator
-                Column: fare
-            Operator: RetainTableColumnsOperator
-            Operator: LimitOperator
+        >>> tbl = vn.read_csv('taxi.csv')
+        >>> print(tbl.explain('select to_int(fare_amount) fare, count(*) from t '
+        ...                   'group by fare order by fare limit 3'))
+
+        Query plan:
+           Operator: MaterializeTableOperator
+            Operator: SliceOperator
+              Operator: ProjectOperator
+                  Column: to_int_4304514592
+                  Column: count_star_4556372144
+                Operator: SortOperator
+                    Column: to_int_4304514592
+                  Operator: AggregateOperator
+                    Operator: ProjectOperator
+                      VectorizedExpression: IntCastFunction
+                          Column: fare_amount
+                      Operator: ProjectOperator
+                          Column: fare_amount
+                        Operator: TableReaderOperator
         """
         query_tree = self._create_query_tree(query,
                                              self._arrow_table.get_schema())

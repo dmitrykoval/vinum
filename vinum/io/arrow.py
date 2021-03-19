@@ -95,13 +95,13 @@ def read_csv(input_file, read_options=None, parse_options=None,
     Examples
     --------
     >>> import vinum as vn
-    >>> tbl = vn.read_csv('test.csv')
-    >>> res_tbl = tbl.sql('select * from t limit 3')
+    >>> tbl = vn.read_csv('taxi.csv')
+    >>> res_tbl = tbl.sql('select key, fare_amount from t limit 3')
     >>> res_tbl.to_pandas()
-       id                            ts        lat        lng  fare
-    0   0   2009-06-15 17:26:21.0000001  40.721319 -73.844311   4.5
-    1   1   2010-01-05 16:52:16.0000002  40.711303 -74.016048  16.9
-    2   2  2011-08-18 00:35:00.00000049  40.761270 -73.982738   5.7
+                                key  fare_amount
+    0   2009-06-15 17:26:21.0000001          4.5
+    1   2010-01-05 16:52:16.0000002         16.9
+    2  2011-08-18 00:35:00.00000049          5.7
     """
     table = pyarrow.csv.read_csv(input_file, read_options, parse_options,
                                  convert_options, memory_pool)
