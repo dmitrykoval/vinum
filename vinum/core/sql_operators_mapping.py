@@ -10,9 +10,11 @@ from vinum.core.functions import (
 from vinum.parser.query import SQLOperator
 
 SQL_OPERATOR_FUNCTIONS = {
-    # Unary operators
     SQLOperator.NEGATION: (np.negative, FunctionType.NUMPY),
     SQLOperator.BINARY_NOT: (lambda x: ~x, FunctionType.NUMPY),
+    SQLOperator.BINARY_AND: (np.bitwise_and, FunctionType.NUMPY),
+    SQLOperator.BINARY_OR: (np.bitwise_or, FunctionType.NUMPY),
+    SQLOperator.BINARY_XOR: (np.bitwise_xor, FunctionType.NUMPY),
 
     # Math operators
     SQLOperator.ADDITION: (np.add, FunctionType.NUMPY),
@@ -36,10 +38,6 @@ SQL_OPERATOR_FUNCTIONS = {
     SQLOperator.IS_NOT_NULL: (pc.is_valid, FunctionType.ARROW),
     SQLOperator.IN: (np.isin, FunctionType.NUMPY),
     SQLOperator.NOT_IN: (partial(np.isin, invert=True), FunctionType.NUMPY),
-
-    # Binary operators
-    SQLOperator.BINARY_AND: (np.bitwise_and, FunctionType.NUMPY),
-    SQLOperator.BINARY_OR: (np.bitwise_or, FunctionType.NUMPY),
 
     # SQL specific operators
     SQLOperator.BETWEEN:

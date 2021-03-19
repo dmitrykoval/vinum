@@ -20,8 +20,8 @@ VERSION = "0.2.0"
 AUTHOR = "Dmitry Koval"
 AUTHOR_EMAIL = "dima@koval.space"
 DESCRIPTION = (
-    "Vinum is a SQL processor written in pure Python, "
-    "designed for data analysis workflows and in-memory analytics. "
+    "Vinum is a SQL query processor for Python, "
+    "designed for data analysis workflows and in-memory analytics."
 )
 URL = "https://github.com/dmitrykoval/vinum"
 PROJECT_URLS = {
@@ -32,7 +32,7 @@ PROJECT_URLS = {
 INSTALL_REQUIRES = [
     "pyarrow >= 3.0.0",
     "numpy >= 1.19.0",
-    "moz_sql_parser == 3.32.20026"
+    "pglast == 1.17",
 ]
 VINUM_CPP_LIB_NAME = 'vinum_cpp'
 

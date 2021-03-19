@@ -1,22 +1,21 @@
 import pyarrow as pa
 
-from typing import Iterable, Union
+from typing import Iterable
 
 import vinum_lib
 
 from vinum.arrow.record_batch import RecordBatch
 from vinum.core.base import Operator, VectorizedExpression
 from vinum.parser.query import Column
-from vinum.util.util import is_column, is_literal
 
 
 class AggregateFunction(VectorizedExpression):
     """
     Abstract Base Class for all aggregate functions.
     """
-    def __init__(self, func, column: Column) -> None:
+    def __init__(self, func, column: Column = None) -> None:
         super().__init__([])
-        if not column or is_literal(column) and column.value == '*':
+        if not column:
             self._input_column_name = ''
         else:
             self._input_column_name = column.get_column_name()
@@ -50,12 +49,14 @@ class AggregateOperator(Operator):
     def __init__(self,
                  parent_operator: 'Operator',
                  group_by_columns: Iterable[Column],
-                 agg_exprs: Iterable[Union[Column, AggregateFunction]]
+                 agg_funcs: Iterable[AggregateFunction],
+                 agg_cols: Iterable[Column],
                  ) -> None:
         super().__init__(parent_operator, None)
 
         self._group_by_columns = group_by_columns
-        self._agg_exprs = agg_exprs
+        self._agg_funcs = agg_funcs
+        self._agg_cols = agg_cols
 
         self.agg_obj = None
 
@@ -78,14 +79,11 @@ class AggregateOperator(Operator):
 
         agg_col_names = [
             c.get_column_name()
-            for c in self._agg_exprs if is_column(c)
+            for c in self._agg_cols
         ]
 
         agg_funcs = []
-        for func in self._agg_exprs:
-            if not isinstance(func, AggregateFunction):
-                continue
-
+        for func in self._agg_funcs:
             col_name = func.get_input_column_name()
             out_col_name = func.get_column_name()
             func_def = vinum_lib.AggFuncDef(

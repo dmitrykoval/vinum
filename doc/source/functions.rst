@@ -26,25 +26,25 @@ For example:
 Type cast functions
 ===================
 
-bool
+to_bool
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**bool(arg)** - Casts argument to bool type.
+**to_bool(arg)** - Casts argument to bool type.
 
-float
+to_float
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**float(arg)** - Casts argument to float type.
+**to_float(arg)** - Casts argument to float type.
 
-int
+to_int
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**int(arg)** - Casts argument to int type.
+**to_int(arg)** - Casts argument to int type.
 
-str
+to_str
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**str(arg)** - Casts argument to str type.
+**to_str(arg)** - Casts argument to str type.
 
 
 
@@ -121,6 +121,22 @@ log10
 
 See: `numpy.log10 <https://numpy.org/doc/stable/reference/generated/numpy.log10.html>`_
 
+
+
+==============
+Math constants
+==============
+
+
+e
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**e()** - returns the e constant.
+
+pi
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**pi()** - returns the pi constant.
 
 
 
@@ -250,16 +266,9 @@ Aggregate functions
 count
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-| **count(*)** - returns the number of rows in the group.
+| **count(*)** - returns the number of all rows in the group.
 | **count(expr | column)** - returns the number of non-null rows in the group.
 
-
-sum
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-**sum(expr | column)** - returns the sum of the values in the group.
-
-See: `numpy.sum <https://numpy.org/doc/stable/reference/generated/numpy.sum.html>`_
 
 
 min
@@ -267,15 +276,17 @@ min
 
 **min(expr | column)** - returns the minimum value in the group.
 
-See: `numpy.minimum <https://numpy.org/doc/stable/reference/generated/numpy.minimum.html>`_
-
 
 max
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **max(expr | column)** - returns the maximum value in the group.
 
-See: `numpy.maximum <https://numpy.org/doc/stable/reference/generated/numpy.maximum.html>`_
+
+sum
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**sum(expr | column)** - returns the sum of the values in the group.
 
 
 avg
@@ -283,13 +294,6 @@ avg
 
 **avg(expr | column)** - returns the arithmetic mean of the values in the group.
 
-See: `numpy.mean <https://numpy.org/doc/stable/reference/generated/numpy.mean.html>`_
 
 
-std
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-**std(expr | column)** - returns the standard deviation of the values in the group.
-
-See: `numpy.std <https://numpy.org/doc/stable/reference/generated/numpy.std.html>`_
 

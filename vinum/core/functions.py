@@ -8,14 +8,17 @@ import pyarrow.compute as pc
 
 from vinum._typing import AnyArrayLike, OperatorArgument
 from vinum.arrow.arrow_table import ArrowTable
-from vinum.core.base import Operator, VectorizedExpression
+from vinum.core.base import VectorizedExpression
 
 from vinum.errors import OperatorError
 from vinum.parser.query import Column, Literal
 from vinum.util.util import (
     ensure_is_array,
     is_numpy_array,
-    is_numpy_str_array, is_pyarrow_array, is_pyarrow_string, is_array_type,
+    is_numpy_str_array,
+    is_pyarrow_array,
+    is_pyarrow_string,
+    is_array_type,
 )
 
 
@@ -340,10 +343,10 @@ class FunctionType(Enum):
 
 _default_functions_registry = {
     # Type conversion
-    'bool': (BoolCastFunction, FunctionType.CLASS),
-    'float': (FloatCastFunction, FunctionType.CLASS),
-    'int': (IntCastFunction, FunctionType.CLASS),
-    'str': (StringCastFunction, FunctionType.CLASS),
+    'to_bool': (BoolCastFunction, FunctionType.CLASS),
+    'to_float': (FloatCastFunction, FunctionType.CLASS),
+    'to_int': (IntCastFunction, FunctionType.CLASS),
+    'to_str': (StringCastFunction, FunctionType.CLASS),
 
     # Math
     'abs': (np.absolute, FunctionType.NUMPY),
@@ -355,6 +358,10 @@ _default_functions_registry = {
     'log': (np.log, FunctionType.NUMPY),
     'log2': (np.log2, FunctionType.NUMPY),
     'log10': (np.log10, FunctionType.NUMPY),
+
+    # Math constants
+    'pi': (lambda: np.pi, FunctionType.NUMPY),
+    'e': (lambda: np.e, FunctionType.NUMPY),
 
     # Datetime
     'date': (DateFunction, FunctionType.CLASS),
@@ -371,6 +378,7 @@ _default_functions_registry = {
 
 
 AGG_FUNCS = {
+    'count_star',
     'count',
     'min',
     'max',

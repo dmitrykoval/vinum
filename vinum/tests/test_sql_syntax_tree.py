@@ -37,7 +37,7 @@ class TestSyntaxTree:
             assert expression.arguments is not None
             assert len(expression.arguments) == num_args
         else:
-            assert expression.arguments is None
+            assert not expression.arguments
 
     def _test_select_exprs(self, query, sel_exprs_len):
         assert query is not None
@@ -47,7 +47,7 @@ class TestSyntaxTree:
         assert len(query.select_expressions) == sel_exprs_len
 
     def test_select(self, test_arrow_table, test_table_column_names):
-        query = "select * from table"
+        query = "select * from tbl"
         query_ast = create_query_ast(query, test_arrow_table)
 
         self._test_select_exprs(query_ast, len(test_table_column_names))
@@ -55,7 +55,7 @@ class TestSyntaxTree:
         assert query_ast.where_condition is None
 
     def test_select_column(self, test_arrow_table):
-        query = "select tax as total from table"
+        query = "select tax as total from tbl"
         query_ast = create_query_ast(query, test_arrow_table)
 
         self._test_select_exprs(query_ast, 1)
@@ -64,7 +64,7 @@ class TestSyntaxTree:
         assert query_ast.where_condition is None
 
     def test_select_columns(self, test_arrow_table):
-        query = "select tax as total, lat as dropoff from table"
+        query = "select tax as total, lat as dropoff from tbl"
         query_ast = create_query_ast(query, test_arrow_table)
 
         self._test_select_exprs(query_ast, 2)
@@ -114,15 +114,13 @@ class TestSyntaxTree:
         expr = query_ast.select_expressions[1]
         self._test_expression(expr,
                               SQLOperator.FUNCTION,
-                              1,
-                              function_name='count',
+                              0,
+                              function_name='count_star',
                               alias='cnt')
-        _test_literal(expr.arguments[0], '*')
-
         assert query_ast.where_condition is None
 
     def test_where(self, test_arrow_table, test_table_column_names):
-        query = "select * from table where vendor_id > 1 and lat < 4.5"
+        query = "select * from tbl where vendor_id > 1 and lat < 4.5"
         query_ast = create_query_ast(query, test_arrow_table)
 
         self._test_select_exprs(query_ast, len(test_table_column_names))
@@ -141,7 +139,7 @@ class TestSyntaxTree:
     def test_where_parenthesis(self,
                                test_arrow_table,
                                test_table_column_names):
-        sql = ("select * from table "
+        sql = ("select * from tbl "
                "where (lat > 2.0 and 15 <= total) or tip = 12")
         query_ast = create_query_ast(sql, test_arrow_table)
 
@@ -167,7 +165,7 @@ class TestSyntaxTree:
         _test_literal(right_arg.arguments[1], 12)
 
     def test_literal_alias(self, test_arrow_table):
-        query = "select 2 as alias from table"
+        query = "select 2 as alias from tbl"
         query_ast = create_query_ast(query, test_arrow_table)
 
         self._test_select_exprs(query_ast, 1)
@@ -176,7 +174,7 @@ class TestSyntaxTree:
         assert query_ast.where_condition is None
 
     def test_expression_alias(self, test_arrow_table):
-        query = "select int(np.sqrt(total)) as sqrt from t"
+        query = "select to_int(np.sqrt(total)) as sqrt from t"
         query_ast = create_query_ast(query, test_arrow_table)
 
         self._test_select_exprs(query_ast, 1)
@@ -184,7 +182,7 @@ class TestSyntaxTree:
         self._test_expression(query_ast.select_expressions[0],
                               SQLOperator.FUNCTION,
                               1,
-                              function_name='int',
+                              function_name='to_int',
                               alias='sqrt')
         nested_expr = query_ast.select_expressions[0].arguments[0]
         self._test_expression(nested_expr,
@@ -226,8 +224,6 @@ class TestSyntaxTree:
             ("select 1&2 from t", SQLOperator.BINARY_AND),
             ("select 1|2 from t", SQLOperator.BINARY_OR),
             ("select 1=2 from t", SQLOperator.EQUALS),
-            ("select 1==2 from t", SQLOperator.EQUALS),
-            ("select 1 is 2 from t", SQLOperator.EQUALS),
             ("select 1!=2 from t", SQLOperator.NOT_EQUALS),
             ("select 1<>2 from t", SQLOperator.NOT_EQUALS),
             ("select 1>2 from t", SQLOperator.GREATER_THAN),
@@ -251,9 +247,9 @@ class TestSyntaxTree:
         assert query_ast.where_condition is None
 
     @pytest.mark.parametrize("query, sql_operator, args", (
-            ("select * from table where tip in (1,2,3)",
+            ("select * from tbl where tip in (1,2,3)",
              SQLOperator.IN, (1, 2, 3)),
-            ("select * from table where tip not in (1,2,3)",
+            ("select * from tbl where tip not in (1,2,3)",
              SQLOperator.NOT_IN, (1, 2, 3)),
     ))
     def test_where_in_operators(self,
@@ -339,7 +335,7 @@ class TestSyntaxTree:
         assert query_ast.where_condition is None
 
     def test_select_distinct(self, test_arrow_table):
-        query = "select distinct (tax, total, tip) from t"
+        query = "select distinct tax, total, tip from t"
         query_ast = create_query_ast(query, test_arrow_table)
 
         self._test_select_exprs(query_ast, 3)
@@ -365,8 +361,8 @@ class TestSyntaxTree:
         _test_column(query_ast.select_expressions[1], 'city_to')
         self._test_expression(query_ast.select_expressions[2],
                               SQLOperator.FUNCTION,
-                              1,
-                              function_name='count')
+                              0,
+                              function_name='count_star')
 
         assert query_ast.is_aggregate() is True
         assert query_ast.group_by is not None
@@ -396,8 +392,8 @@ class TestSyntaxTree:
         assert sel_expr.is_shared() is True
         self._test_expression(query_ast.select_expressions[2],
                               SQLOperator.FUNCTION,
-                              1,
-                              function_name='count')
+                              0,
+                              function_name='count_star')
 
         assert query_ast.is_aggregate() is True
         assert query_ast.group_by is not None
@@ -478,12 +474,8 @@ class TestSyntaxTree:
 
         assert query_ast.sort_order[0] == SortOrder.DESC
 
-        self._test_expression(query_ast.order_by[0], SQLOperator.ADDITION, 3)
+        self._test_expression(query_ast.order_by[0], SQLOperator.ADDITION, 2)
         assert query_ast.order_by[0].is_shared() == is_shared
-
-        _test_column(query_ast.order_by[0].arguments[0], 'tax')
-        _test_column(query_ast.order_by[0].arguments[1], 'tip')
-        _test_column(query_ast.order_by[0].arguments[2], 'total')
 
     @pytest.mark.parametrize("query, limit, offset", (
             ("select * from t", None, 0),

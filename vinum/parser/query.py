@@ -1,4 +1,3 @@
-from collections.abc import Iterable
 from enum import Enum, auto
 from typing import Any, Optional, Tuple, TYPE_CHECKING, FrozenSet, List, cast
 
@@ -7,14 +6,12 @@ from vinum.util.util import (
     find_all_columns_recursively,
     append_flat,
     is_expression,
-    is_literal,
 )
 from vinum.util.tree_print import RecursiveTreePrint
 
 
 if TYPE_CHECKING:
     from vinum._typing import QueryBaseType
-    from vinum.arrow.arrow_table import ArrowTable
 
 
 class SQLOperator(Enum):
@@ -27,9 +24,9 @@ class SQLOperator(Enum):
 
     NEGATION = auto()
     BINARY_NOT = auto()
-
     BINARY_AND = auto()
-    BINARY_OR = auto
+    BINARY_OR = auto()
+    BINARY_XOR = auto()
 
     CONCAT = auto()
 
@@ -96,6 +93,17 @@ class HasAlias:
         """
         pass
 
+    def set_alias(self, alias: str) -> None:
+        """
+        Set alias.
+
+        Parameters
+        ----------
+        alias : str
+            Alias.
+        """
+        pass
+
 
 class HasColumnName:
     """
@@ -148,6 +156,9 @@ class Literal(HasAlias, HasColumnName, RecursiveTreePrint):
     def get_alias(self) -> Optional[str]:
         return self._alias
 
+    def set_alias(self, alias: str) -> None:
+        self._alias = alias
+
     def get_column_name(self) -> str:
         return str(id(self))
 
@@ -168,10 +179,6 @@ class Literal(HasAlias, HasColumnName, RecursiveTreePrint):
 class Column(HasAlias, HasColumnName, RecursiveTreePrint):
     """
     Table column.
-
-    Represent a column in the ArrowTable.
-    By contract, at the least at the time of Column object creation,
-    column with given name exists in the table.
 
     Parameters
     ----------
@@ -199,6 +206,9 @@ class Column(HasAlias, HasColumnName, RecursiveTreePrint):
             return self._alias
         else:
             return self._name
+
+    def set_alias(self, alias: str) -> None:
+        self._alias = alias
 
     def str_lines_repr(self, indent_level: int) -> Tuple[str, ...]:
         str_repr = (
@@ -240,13 +250,13 @@ class Expression(HasAlias, HasColumnName, RecursiveTreePrint):
                  sql_operator: SQLOperator,
                  arguments: Tuple['QueryBaseType', ...],
                  function_name: str = None,
-                 alias: Optional[str] = None):
+                 alias: Optional[str] = None,
+                 shared_id: Optional[str] = None):
         self._sql_operator: SQLOperator = sql_operator
         self._arguments: Tuple['QueryBaseType', ...] = arguments
         self._function_name: Optional[str] = function_name
         self._alias: Optional[str] = alias
-
-        self._shared_id: Optional[str] = None
+        self._shared_id: Optional[str] = shared_id
 
     @property
     def sql_operator(self) -> SQLOperator:
@@ -273,6 +283,9 @@ class Expression(HasAlias, HasColumnName, RecursiveTreePrint):
             return str(self._function_name)
         else:
             return None
+
+    def set_alias(self, alias: str) -> None:
+        self._alias = alias
 
     def is_shared(self) -> bool:
         """
@@ -329,6 +342,15 @@ class Expression(HasAlias, HasColumnName, RecursiveTreePrint):
 
         lines.append('')
         return tuple(lines)
+
+    def copy(self) -> 'Expression':
+        return Expression(
+            self._sql_operator,
+            self._arguments,
+            self._function_name,
+            self._alias,
+            self._shared_id
+        )
 
     def __eq__(self, o: object) -> bool:
         if not isinstance(o, self.__class__):
@@ -497,12 +519,8 @@ class Query:
     def has_count_star(self):
         for expr in self.select_expressions:
             if (is_expression(expr)
-                and expr.function_name
-                and expr.function_name.lower() == 'count'
-                and len (expr.arguments) == 1
-                and is_literal(expr.arguments[0])
-                and expr.arguments[0].value == '*'
-            ):
+                    and expr.function_name
+                    and expr.function_name.lower() == 'count_star'):
                 return True
 
     def __str__(self):

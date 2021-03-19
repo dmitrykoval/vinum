@@ -52,7 +52,13 @@ from vinum.parser.query import (
     Column,
     HasAlias,
 )
-from vinum.util.util import is_expression, is_literal
+from vinum.planner.binder import Binder
+from vinum.util.util import (
+    is_expression,
+    traverse_exprs_tree,
+    is_vect_expression,
+    traverse_exprs,
+)
 
 if TYPE_CHECKING:
     from vinum._typing import QueryBaseType, OperatorArgument
@@ -191,12 +197,6 @@ class QueryPlanner:
             function_name = expr.function_name.lower()  # type: str
 
             if is_aggregate_func(function_name):
-                if (function_name == 'count'
-                        and (not arguments
-                             or (is_literal(arguments[0]) and arguments[0].value == '*')
-                             or (isinstance(arguments[0], str) and arguments[0] == '*'))):
-                    function_name = 'count_star'
-                    arguments = [""]
                 function_name = ensure_numpy_mapping(function_name)
 
                 vec_expr = AggregateFunction(function_name, *arguments)
@@ -339,6 +339,8 @@ class QueryPlanner:
         Operator
             Query plan.
         """
+        self._query = Binder.bind(query=self._query)
+
         processed_shared_ids: Set[str] = set()
 
         used_columns = self._query.get_all_used_column_names()
@@ -381,9 +383,8 @@ class QueryPlanner:
 
         if self._query.is_aggregate():
             inner_agg_exprs = []
-            for expr in self._query.select_expressions:
-                if (is_expression(expr)
-                        and is_aggregate_func(expr.function_name)):
+            for expr in traverse_exprs(self._query.select_expressions):
+                if is_aggregate_func(expr.function_name):
                     project_args = []
                     has_inner = False
                     for inner_expr in expr.arguments:
@@ -398,14 +399,13 @@ class QueryPlanner:
                     if has_inner:
                         expr.set_arguments(tuple(project_args))
             group_by = []
+            group_by_col_names = set()
             for expr in group_by_exprs:
                 if is_expression(expr):
-                    if not expr.is_shared():
-                        inner_col_id = str(id(expr))
-                        expr.set_shared_id(inner_col_id)
                     inner_agg_exprs.append(expr)
                     expr = Column(expr.get_shared_id())
                 group_by.append(expr)
+                group_by_col_names.add(expr.get_column_name())
 
             if inner_agg_exprs:
                 current_op = ProjectOperator(
@@ -414,15 +414,58 @@ class QueryPlanner:
                     parent_operator=current_op,
                     keep_input_table=True
                 )
-            agg_exprs = self._process_expressions(
+
+            proc_sel_exprs = self._process_expressions(
                 self._query.get_select_plus_post_agg_cols(),
                 processed_shared_ids
             )
+
+            # Traverse all aggregate functions and if function is an expression
+            # argument - replace it with a column object.
+            agg_funcs = []
+
+            def substitute(expr_node):
+                nonlocal agg_funcs
+                inner_agg_funcs = False
+                if not is_vect_expression(expr_node):
+                    return
+                if isinstance(expr_node, AggregateFunction):
+                    agg_funcs.append(expr_node)
+                    return
+                replacement_args = list(expr_node.arguments)
+                for arg in expr_node.arguments:
+                    if (is_vect_expression(arg)
+                            and isinstance(arg, AggregateFunction)):
+                        agg_funcs.append(arg)
+                        replacement_args.append(Column(
+                            arg.get_column_name()
+                        ))
+                        inner_agg_funcs = True
+                    else:
+                        replacement_args.append(arg)
+                if inner_agg_funcs:
+                    expr_node.arguments = replacement_args
+
+            for expr in proc_sel_exprs:
+                traverse_exprs_tree(expr, substitute)
+
+            # Find all groupby columns in the tree of each select expression.
+            agg_cols = []
+
+            def find_groupby_cols(expr_node):
+                nonlocal agg_cols
+                if expr_node.get_column_name() in group_by_col_names:
+                    agg_cols.append(expr_node)
+
+            for expr in proc_sel_exprs:
+                traverse_exprs_tree(expr, find_groupby_cols)
+
             current_op = AggregateOperator(
                 parent_operator=current_op,
                 group_by_columns=self._process_expressions(
                     group_by, processed_shared_ids),
-                agg_exprs=agg_exprs
+                agg_funcs=agg_funcs,
+                agg_cols=agg_cols
             )
 
         if self._query.having:
@@ -440,12 +483,12 @@ class QueryPlanner:
                 current_op
             )
 
-        agg_exprs = self._process_expressions(
+        sel_exprs = self._process_expressions(
             self._query.select_expressions,
             processed_shared_ids
         )
         current_op = ProjectOperator(
-            arguments=agg_exprs,
+            arguments=sel_exprs,
             parent_operator=current_op,
             col_names=self._column_names(self._query.select_expressions)
         )

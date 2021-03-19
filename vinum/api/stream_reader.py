@@ -85,7 +85,7 @@ class StreamReader:
         from vinum import Table
 
         query_tree = parser_factory(query,
-                                    self._reader.schema).generate_query_tree()
+                                    self._reader.schema).parse()
         query_dag = QueryPlanner(query_tree, reader=self).plan_query()
 
         executor = RecursiveExecutor()

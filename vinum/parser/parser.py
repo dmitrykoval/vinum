@@ -1,15 +1,10 @@
-from collections import defaultdict
-from typing import List, Union, Optional, Tuple, Dict, cast, Set, Any
+from typing import Dict, Any
 
 import pyarrow as pa
-import numpy as np
 
-import moz_sql_parser
-import pyparsing
+from pglast import Node, parse_sql
+from pglast.enums import A_Expr_Kind, BoolExprType
 
-from vinum._typing import ParserArgType, QueryBaseType
-from vinum.arrow.arrow_table import ArrowTable
-from vinum.core.functions import is_aggregate_func
 from vinum.errors import ParserError
 from vinum.parser.query import (
     Column,
@@ -21,36 +16,15 @@ from vinum.parser.query import (
 )
 from vinum.util.util import (
     append_flat,
-    ensure_is_array,
-    is_array_type,
-    is_column,
-    is_expression,
     is_literal,
 )
-
-
-def flatten_expressions_tree(
-        expression: Optional[Expression]) -> Tuple[Expression, ...]:
-    """
-    Flatten expressions tree into a list.
-    """
-    if not expression:
-        return tuple()
-
-    expressions = [expression]
-    for arg in expression.arguments:
-        if is_expression(arg):
-            expressions.extend(flatten_expressions_tree(arg))
-
-    return tuple(expressions)
 
 
 class AbstractSqlParser:
     """
     Abstract SQL Parser.
 
-    Generate AST from SQL statement. In the process column names are resolved
-    and exception is raised in case columns can not be found.
+    Generate AST from SQL statement.
 
     Parameters
     ----------
@@ -63,7 +37,7 @@ class AbstractSqlParser:
         self._sql = sql
         self._schema = schema
 
-    def generate_query_tree(self) -> Query:
+    def parse(self) -> Query:
         """
         Generate AST of SQL statement.
 
@@ -78,495 +52,234 @@ class AbstractSqlParser:
         pass
 
 
-class MozSqlParser(AbstractSqlParser):
+class PglastParser(AbstractSqlParser):
     """
-    Implementation of AbstractSqlParser based on moz_sql_parser.
-
-    Moz SQL Parser parses SQL SELECT statements into a json object.
-    The json object is further processed to create parser-independent
-    Query AST object.
-
-    For more details see: https://github.com/mozilla/moz-sql-parser
-
-    Parameters
-    ----------
-    sql : str
-        SQL statement to parse.
-    table : ArrowTable
-        Data table.
+    Parses SQL query into AST.
+    Uses Postgres parser provided by an amazing Pglast project.
+    https://github.com/lelit/pglast
     """
     OPERATORS = {
-        'add': SQLOperator.ADDITION,
-        'sub': SQLOperator.SUBTRACTION,
-        'mul': SQLOperator.MULTIPLICATION,
-        'div': SQLOperator.DIVISION,
-        'mod': SQLOperator.MODULUS,
+        '+': SQLOperator.ADDITION,
+        '-': SQLOperator.SUBTRACTION,
+        '*': SQLOperator.MULTIPLICATION,
+        '/': SQLOperator.DIVISION,
+        '%': SQLOperator.MODULUS,
 
-        'neg': SQLOperator.NEGATION,
-        'binary_not': SQLOperator.BINARY_NOT,
+        '=': SQLOperator.EQUALS,
+        '==': SQLOperator.EQUALS,
+        '!=': SQLOperator.NOT_EQUALS,
+        '<>': SQLOperator.NOT_EQUALS,
+        '>': SQLOperator.GREATER_THAN,
+        '>=': SQLOperator.GREATER_THAN_OR_EQUAL,
+        '<': SQLOperator.LESS_THAN,
+        '<=': SQLOperator.LESS_THAN_OR_EQUAL,
 
-        'binary_or': SQLOperator.BINARY_OR,
-        'binary_and': SQLOperator.BINARY_AND,
-
-        'eq': SQLOperator.EQUALS,
-        'neq': SQLOperator.NOT_EQUALS,
-        'gt': SQLOperator.GREATER_THAN,
-        'gte': SQLOperator.GREATER_THAN_OR_EQUAL,
-        'lt': SQLOperator.LESS_THAN,
-        'lte': SQLOperator.LESS_THAN_OR_EQUAL,
-
-        'and': SQLOperator.AND,
-        'or': SQLOperator.OR,
-        'between': SQLOperator.BETWEEN,
-        'not_between': SQLOperator.NOT_BETWEEN,
-        'exists': SQLOperator.IS_NOT_NULL,
-        'missing': SQLOperator.IS_NULL,
-        'in': SQLOperator.IN,
-        'nin': SQLOperator.NOT_IN,
-        'like': SQLOperator.LIKE,
-        'nlike': SQLOperator.NOT_LIKE,
-        'not': SQLOperator.NOT,
-        'distinct': SQLOperator.DISTINCT,
-
-        'concat': SQLOperator.CONCAT,
+        '|': SQLOperator.BINARY_OR,
+        '&': SQLOperator.BINARY_AND,
+        '#': SQLOperator.BINARY_XOR,
+        '~': SQLOperator.BINARY_NOT,
+        '||': SQLOperator.CONCAT,
     }
 
-    SQL_TOKENS = {
-        '*': '*',
-        'np.pi': np.pi,
-        'np.e': np.e,
+    BOOL_OPERATORS = {
+        BoolExprType.AND_EXPR: SQLOperator.AND,
+        BoolExprType.OR_EXPR: SQLOperator.OR,
+        BoolExprType.NOT_EXPR: SQLOperator.NOT,
     }
 
     def __init__(self, sql: str, schema: pa.Schema) -> None:
         super().__init__(sql, schema)
         self._sql_parsed: Dict[str, Any] = {}
 
-    def _parse_sql(self) -> None:
-        """
-        Parses SQL statement string to json based structure.
-        """
-        self._sql_parsed = moz_sql_parser.parse(self._sql)
+    def _parse(self):
+        root_node = Node(parse_sql(self._sql))
 
-    def _resolve_column(self,
-                        column_name: str,
-                        alias: Optional[str] = None) -> Optional[Column]:
-        """
-        Return Column object if column exist in a table, None otherwise.
-        """
-        if column_name in self._schema.names:
-            return Column(column_name, alias)
-        else:
+        assert len(root_node) == 1
+        statement = root_node[0].parse_tree['stmt']
+        if 'SelectStmt' not in statement:
+            raise ParserError('Only SELECT statements are supported.')
+
+        return statement['SelectStmt']
+
+    def _unpack_literal(self, val: dict):
+        if 'String' in val:
+            return val['String']['str']
+        elif 'Integer' in val:
+            return val['Integer']['ival']
+        elif 'Float' in val:
+            return float(val['Float']['str'])
+        elif 'Null' in val:
             return None
-
-    def _resolve_expressions(
-            self,
-            expression: ParserArgType,
-            alias: Optional[str] = None,
-            aliases_map: Dict[str, QueryBaseType] = None
-    ) -> Union[QueryBaseType, List]:
-        """
-        Recursively parse Expressions tree.
-
-        Resolve columns and package literals into Literal object.
-        """
-        arguments: List[Union[QueryBaseType, List]] = []
-        if isinstance(expression, dict):
-            assert len(expression.keys()) == 1
-            operator = list(expression.keys())[0]
-            args = expression[operator]
-            if operator == 'literal':
-                if is_array_type(args):
-                    return [Literal(arg) for arg in args]
-                else:
-                    return Literal(args, alias)
-            elif operator in ('in', 'nin'):
-                for arg in args:
-                    if is_array_type(arg):
-                        arguments.append(Literal(arg, alias))
-                    else:
-                        arguments.append(
-                            self._resolve_expressions(
-                                arg,
-                                aliases_map=aliases_map
-                            )
-                        )
-            else:
-                res_args = self._resolve_expressions(
-                    args,
-                    aliases_map=aliases_map
-                )
-                append_flat(arguments, res_args)
-        elif isinstance(expression, list):
-            for arg in expression:
-                arguments.append(
-                    self._resolve_expressions(
-                        arg,
-                        aliases_map=aliases_map
-                    )
-                )
-            return arguments
-        else:
-            column = self._resolve_column(str(expression), alias)
-            if column:
-                return column
-            else:
-                if isinstance(expression, str):
-                    if aliases_map and expression in aliases_map:
-                        return aliases_map[expression]
-                    elif expression not in self.SQL_TOKENS:
-                        raise ParserError(
-                            f'Column: {expression} is not found.'
-                        )
-                    else:
-                        expression = self.SQL_TOKENS[expression]
-                return Literal(expression, alias)
-
-        if operator in MozSqlParser.OPERATORS:
-            sql_operator = MozSqlParser.OPERATORS[operator]
-            function_name = None
-        else:
-            sql_operator = SQLOperator.FUNCTION
-            function_name = operator
-
-        return Expression(
-            sql_operator,
-            tuple(arguments),
-            function_name=function_name,
-            alias=alias
-        )
-
-    def _process_select_clause(self,
-                               select_clause: ParserArgType
-                               ) -> Tuple[QueryBaseType, ...]:
-        """
-        Recursively process all the expressions in the SELECT clause,
-        and resolve them into Literal, Column or Expression.
-        """
-        if isinstance(select_clause, list):
-            source_columns = select_clause
-        elif isinstance(select_clause, dict):
-            source_columns = [select_clause]
-        elif isinstance(select_clause, str) and select_clause == '*':
-            return tuple(
-                (Column(col_name) for col_name in self._schema.names)
-            )
         else:
             raise ParserError(
-                f'Unrecognized select clause type: {select_clause}'
+                f'Failed to unpack literal: {val}'
             )
 
-        resolved_expressions: List[QueryBaseType] = []
-        for select_expression in source_columns:
-            if isinstance(select_expression, dict):
-                select_value = select_expression['value']
-                alias_name = select_expression.get('name')
-
-                resolved_expressions.append(
-                    cast(
-                        QueryBaseType,
-                        self._resolve_expressions(select_value, alias_name)
-                    )
-                )
-            else:
-                resolved_expressions.extend(
-                    self._process_select_clause(select_expression)
-                )
-
-        return tuple(resolved_expressions)
-
-    @staticmethod
-    def _process_distinct(select_expressions: Tuple[QueryBaseType, ...]
-                          ) -> Tuple[Tuple[QueryBaseType, ...], bool]:
-        """
-        Process DISTINCT clause if present.
-        """
-        select_exprs: List[QueryBaseType] = []
-        distinct_on = None
-        for expr in select_expressions:  # type: Any
-            if (
-                    is_expression(expr)
-                    and expr.sql_operator == SQLOperator.DISTINCT
-            ):
-                select_exprs.extend(expr.arguments)
-                distinct_on = set(expr.arguments)
-            else:
-                select_exprs.append(expr)
-
-        if distinct_on and set(select_exprs) != distinct_on:
-            raise ParserError(
-                'DISTINCT column(s) are mixed with non-DISTINCT column(s), '
-                'this behaviour is not supported.'
-            )
-
-        return (
-            tuple(select_exprs),
-            distinct_on is not None
-        )
-
-    @staticmethod
-    def _create_aliases_map(
-            select_expressions: Tuple[QueryBaseType, ...]
-    ) -> Dict[str, QueryBaseType]:
-        """
-        Create a map of aliases and corresponding expressions.
-        """
-        aliases: Dict[str, QueryBaseType] = {}
-        for expr in select_expressions:
-            if expr.has_alias():
-                alias = expr.get_alias()
-                assert alias is not None
-                aliases[alias] = expr
-        return aliases
-
-    @staticmethod
-    def _mark_shared_expressions(
-            operators_groups: Tuple[Tuple[QueryBaseType, ...], ...]
-    ) -> None:
-        """
-        Assign shared expressions IDs.
-
-        Process groups of operators
-        (ie. select expressions, group by expressions, order by, ..),
-        find equal expressions (ie timestamp % 60) in different groups
-        and assign a random identifier to sets of shared expressions.
-
-        Parameters
-        ----------
-        operators_groups : Tuple[Tuple[QueryBaseType, ...], ...]
-            Groups of operators across which to mark shared expressions.
-        """
-        groups = [grp for grp in operators_groups if grp]
-        if len(groups) < 2:
-            return
-
-        duplicate_indices: Dict[Expression, Set] = defaultdict(set)
-        for group_one_idx, group_one in enumerate(groups):
-            for group_two_idx, group_two in enumerate(groups):
-                if group_one_idx == group_two_idx:
-                    continue
-
-                for op_one_idx, op_one in enumerate(group_one):
-                    if not is_expression(op_one):
-                        continue
-                    for op_two_idx, op_two in enumerate(group_two):
-                        if is_expression(op_two) and op_one == op_two:
-                            duplicate_indices[op_one].update(
-                                ((group_one_idx, op_one_idx),
-                                 (group_two_idx, op_two_idx))
-                            )
-
-        for expression, group_indices in duplicate_indices.items():
-            prefix = (expression.function_name
-                      if expression.function_name
-                      else expression.sql_operator)
-            shared_id = f'{prefix}_{id(expression)}'
-            for group_idx, expression_idx in group_indices:
-                shared_expr = groups[group_idx][expression_idx]
-                shared_expr.set_shared_id(shared_id)
-
-    def _process_group_by(self,
-                          group_by_clause: Tuple[Dict, ...],
-                          aliases_map: Dict[str, QueryBaseType]
-                          ) -> Tuple[QueryBaseType, ...]:
-        """
-        Process GROUP BY clause.
-        """
-        group_by = []
-        for value in group_by_clause:
-            group_by.append(
-                cast(
-                    QueryBaseType,
-                    self._resolve_expressions(value['value'],
-                                              aliases_map=aliases_map)
-                )
-            )
-
-        return tuple(group_by)
-
-    def _process_order_by(self,
-                          order_by_clause: Tuple[Dict, ...],
-                          aliases_map: Dict[str, QueryBaseType]
-                          ) -> Tuple[
-                                    Tuple[QueryBaseType, ...],
-                                    Tuple[SortOrder, ...]]:
-        """
-        Process ORDER BY clause.
-        """
-        order_by = []
-        sort_order = []
-        for value in order_by_clause:
-            expr = self._resolve_expressions(value['value'],
-                                             aliases_map=aliases_map)
-            col_order = (SortOrder.ASC
-                         if value.get('sort', 'asc') == 'asc'
-                         else SortOrder.DESC)
-            order_by.append(cast(QueryBaseType, expr))
-            sort_order.append(col_order)
-
-        return (
-            tuple(order_by),
-            tuple(sort_order)
-        )
-
-    @staticmethod
-    def _is_aggregate_query(
-            select_expressions: Tuple[QueryBaseType, ...],
-    ) -> bool:
-        """
-        Test if query contains aggregate functions.
-        """
-        for expr in select_expressions:
-            if is_expression(expr):
-                for expr in flatten_expressions_tree(expr):
-                    if is_aggregate_func(expr.function_name):
-                        return True
-        return False
-
-    @staticmethod
-    def _ensure_groupby_select_correctness(
-            select_expressions: Tuple[QueryBaseType, ...],
-            group_by: Tuple[QueryBaseType, ...]) -> None:
-        """
-        Ensure structural correctness of the GROUP BY clause.
-
-        For example SELECT columns are either part of the GROUP BY clause
-        or used in the aggregate functions.
-        """
-        usage_msg = ('Only aggregate functions and columns present in the '
-                     '"GROUP BY" clause are allowed.')
-
-        group_by_columns = set(c for c in group_by if is_column(c))
-        group_by_expressions = set(
-            e for e in group_by if is_expression(e)
-        )
-
-        for column in select_expressions:
-            if is_column(column) and column not in group_by_columns:
-                column = cast(Column, column)
-                raise ParserError(
-                    f'Column "{column.get_column_name()}" is not part of the '
-                    f'"GROUP BY" clause. {usage_msg}.'
-                )
-            elif is_expression(column):
-                column = cast(Expression, column)
-                is_aggr_expr = False
-                for expr in flatten_expressions_tree(column):
-                    if is_aggregate_func(expr.function_name):
-                        is_aggr_expr = True
-                        break
-
-                if (column not in group_by_expressions and not is_aggr_expr):
-                    op_name = (column.function_name
-                               if column.function_name
-                               else column.sql_operator)
-                    raise ParserError(
-                        f'Operator "{op_name}" is neither aggregate function '
-                        f'nor part of the "GROUP BY" clause. {usage_msg}.'
-                    )
-            elif is_literal(column):
-                column = cast(Literal, column)
-                raise ParserError(
-                    f'Literal value "{column.value}" is not allowed '
-                    f'in the "GROUP BY" mode. {usage_msg}.'
-                )
-
-    @staticmethod
-    def _ensure_having_correctness(having: Expression) -> None:
-        """
-        Ensure aggregate functions in HAVING clause are also
-        referenced in either SELECT or GROUP BY.
-        """
-        for expr in flatten_expressions_tree(having):
-            if (is_aggregate_func(expr.function_name)
-                    and not expr.is_shared()):
-                raise ParserError(
-                    f'Aggregate function "{expr.function_name}" is used '
-                    'in HAVING, but is neither part of "SELECT" '
-                    'nor "GROUP BY.'
-                )
-
-    def generate_query_tree(self) -> Query:
+    def _parse_node(self, node):
         try:
-            self._parse_sql()
-        except pyparsing.ParseException as e:
-            raise ParserError('Failed to parse the query.') from e
+            if 'A_Const' in node:
+                val = node['A_Const']['val']
+                return Literal(self._unpack_literal(val))
+            elif 'ColumnRef' in node:
+                col_val = node['ColumnRef']['fields'][0]
 
-        assert self._sql_parsed
-        select_expressions = self._process_select_clause(
-            self._sql_parsed['select']
-        )
-        select_expressions, distinct_on = self._process_distinct(
-            select_expressions
-        )
+                if isinstance(col_val, dict) and 'A_Star' in col_val:
+                    return tuple(
+                        (Column(col_name) for col_name in self._schema.names)
+                    )
 
-        where_operators: Optional[Expression] = None
-        if 'where' in self._sql_parsed:
-            where_operators = self._resolve_expressions(
-                self._sql_parsed['where']
-            )   # type: Optional[Expression]
+                return Column(self._unpack_literal(col_val))
+            elif 'A_Expr' in node:
+                expr = node['A_Expr']
+                kind = A_Expr_Kind(expr['kind'])
+                name = self._unpack_literal(expr['name'][0])
+
+                if kind == A_Expr_Kind.AEXPR_OP:
+                    sql_operator = self.OPERATORS[name]
+                    args = []
+                    for arg_type in ('lexpr', 'rexpr'):
+                        if arg_type in expr:
+                            arg = self._parse_node(expr[arg_type])
+                            if is_literal(arg) and arg.value is None and name in ('=', '=='):
+                                sql_operator = SQLOperator.IS_NULL
+                            elif is_literal(arg) and arg.value is None and name in ('!=', '<>'):
+                                sql_operator = SQLOperator.IS_NOT_NULL
+                            else:
+                                args.append(arg)
+                    if name == '-' and len(args) == 1:
+                        sql_operator = SQLOperator.NEGATION
+                elif kind == A_Expr_Kind.AEXPR_IN:
+                    if name == '=':
+                        sql_operator = SQLOperator.IN
+                    else:
+                        sql_operator = SQLOperator.NOT_IN
+                    args = [self._parse_node(expr['lexpr'])]
+                    in_list = []
+                    for arg in expr['rexpr']:
+                        in_list.append(self._parse_node(arg).value)
+                    args.append(Literal(in_list))
+                elif kind in (A_Expr_Kind.AEXPR_BETWEEN, A_Expr_Kind.AEXPR_NOT_BETWEEN):
+                    if kind == A_Expr_Kind.AEXPR_BETWEEN:
+                        sql_operator = SQLOperator.BETWEEN
+                    else:
+                        sql_operator = SQLOperator.NOT_BETWEEN
+                    args = [self._parse_node(expr['lexpr'])]
+                    for arg in expr['rexpr']:
+                        args.append(self._parse_node(arg))
+                elif kind == A_Expr_Kind.AEXPR_LIKE:
+                    if name == '~~':
+                        sql_operator = SQLOperator.LIKE
+                    else:
+                        sql_operator = SQLOperator.NOT_LIKE
+                    args = [
+                        self._parse_node(expr['lexpr']),
+                        self._parse_node(expr['rexpr'])
+                    ]
+
+                else:
+                    raise ParserError(f'Expression type "{kind}" is not implemented')
+
+                return Expression(
+                    sql_operator,
+                    tuple(args)
+                )
+            elif 'BoolExpr' in node:
+                expr = node['BoolExpr']
+                bool_operator = self.BOOL_OPERATORS[BoolExprType(expr['boolop'])]
+                args = []
+                for arg in expr['args']:
+                    args.append(self._parse_node(arg))
+                return Expression(
+                    bool_operator,
+                    tuple(args)
+                )
+            elif 'NullTest' in node:
+                expr = node['NullTest']
+                is_null_op = (SQLOperator.IS_NULL
+                              if expr['nulltesttype'] == 0
+                              else SQLOperator.IS_NOT_NULL
+                              )
+                return Expression(
+                    is_null_op,
+                    tuple([self._parse_node(expr['arg'])])
+                )
+            elif 'FuncCall' in node:
+                expr = node['FuncCall']
+                name = '.'.join(self._unpack_literal(fc) for fc in expr['funcname'])
+                args = []
+                if 'agg_star' in expr and name and name.lower() == 'count':
+                    name = 'count_star'
+                elif 'args' in expr:
+                    for arg in expr['args']:
+                        args.append(self._parse_node(arg))
+                return Expression(
+                    SQLOperator.FUNCTION,
+                    tuple(args),
+                    function_name=name
+                )
+
+        except (KeyError, IndexError):
+            raise ParserError('Failed to parse the query.')
+
+    def _create_ast(self):
+        ast = self._parse()
 
         is_aggregate_query = False
-        group_by: Tuple[QueryBaseType, ...] = tuple()
-        aliases_map = self._create_aliases_map(select_expressions)
-        if 'groupby' in self._sql_parsed:
-            group_by = self._process_group_by(
-                ensure_is_array(self._sql_parsed['groupby']),
-                aliases_map
-            )
+        distinct_on = False
+        if 'distinctClause' in ast:
+            distinct_on = True
             is_aggregate_query = True
-        if not is_aggregate_query:
-            is_aggregate_query = self._is_aggregate_query(select_expressions)
-        if is_aggregate_query:
-            self._ensure_groupby_select_correctness(select_expressions,
-                                                    group_by)
 
-        having: Optional[Expression] = None
-        if 'having' in self._sql_parsed:
-            having = cast(
-                Optional[Expression],
-                self._resolve_expressions(
-                    self._sql_parsed['having'],
-                    aliases_map=aliases_map)
-            )
+        select_expressions = []
+        for sel_expr in ast['targetList']:
+            target = sel_expr['ResTarget']
+            alias = target['name'] if 'name' in target else None
+            node = self._parse_node(target['val'])
+            if alias:
+                node.set_alias(alias)
+            append_flat(select_expressions, node)
+        select_expressions = tuple(select_expressions)
 
-        order_by: Tuple[QueryBaseType, ...] = tuple()
-        sort_order: Tuple[SortOrder, ...] = tuple()
-        if 'orderby' in self._sql_parsed:
-            order_by, sort_order = self._process_order_by(
-                ensure_is_array(self._sql_parsed['orderby']),
-                aliases_map
-            )
+        where_clause = None
+        if 'whereClause' in ast:
+            where_clause = self._parse_node(ast['whereClause'])
 
-        self._mark_shared_expressions(
-            (
-                select_expressions,
-                group_by,
-                flatten_expressions_tree(having),
-                order_by
-            )
-        )
+        group_by = []
+        if 'groupClause' in ast:
+            is_aggregate_query = True
+            group_by = []
+            for expr in ast['groupClause']:
+                group_by.append(self._parse_node(expr))
+            group_by = tuple(group_by)
 
-        if having:
-            self._ensure_having_correctness(having)
+        having = None
+        if 'havingClause' in ast:
+            having = self._parse_node(ast['havingClause'])
+
+        order_by = []
+        sort_order = []
+        if 'sortClause' in ast:
+            for sort_expr in ast['sortClause']:
+                sort_by = sort_expr['SortBy']
+                order_by.append(self._parse_node(sort_by['node']))
+                sortby_dir = SortOrder.ASC if sort_by['sortby_dir'] <= 1 else SortOrder.DESC
+                sort_order.append(sortby_dir)
+        order_by = tuple(order_by)
+        sort_order = tuple(sort_order)
 
         limit = None
         offset = 0
-        if 'limit' in self._sql_parsed:
-            try:
-                limit = int(self._sql_parsed['limit'])
-                if 'offset' in self._sql_parsed:
-                    offset = int(self._sql_parsed['offset'])
-            except ValueError as e:
-                raise ParserError(
-                    'Failed to parse LIMIT clause. Expected integer value.'
-                ) from e
+        if 'limitCount' in ast:
+            limit = self._parse_node(ast['limitCount']).value
+            if 'limitOffset' in ast:
+                offset = self._parse_node(ast['limitOffset']).value
 
-        query = Query(
+        return Query(
             self._schema,
             select_expressions,
             is_aggregate_query,
             distinct_on,
-            where_operators,
+            where_clause,
             group_by,
             having,
             order_by,
@@ -575,7 +288,8 @@ class MozSqlParser(AbstractSqlParser):
             offset
         )
 
-        return query
+    def parse(self) -> Query:
+        return self._create_ast()
 
 
 def parser_factory(sql: str, schema: pa.Schema) -> AbstractSqlParser:
@@ -594,4 +308,4 @@ def parser_factory(sql: str, schema: pa.Schema) -> AbstractSqlParser:
     AbstractSqlParser
         Instance of AbstractSqlParser.
     """
-    return MozSqlParser(sql, schema)
+    return PglastParser(sql, schema)
