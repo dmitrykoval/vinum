@@ -17,9 +17,10 @@ if missing_dependencies:
     )
 del hard_dependencies, dependency, missing_dependencies
 
+import os
 import vinum_lib
-if vinum_lib.import_pyarrow() != 0:
-    raise StandardError('Failed to initialize pyarrow C++ bindings.')
+if os.environ.get('READTHEDOCS') != 'True' and vinum_lib.import_pyarrow() != 0:
+    raise RuntimeError('Failed to initialize pyarrow C++ bindings.')
 
 from vinum.core.udf import (   # noqa: F401
     register_python,

@@ -221,7 +221,7 @@ DML and transactions.
 If you need a DBMS designed for data analytics and OLAP,
 or don't need Python UDFs,
 consider using excellent `DuckDB <https://duckdb.org/>`_ - it is based on
-a solid scientific foundation and is extremely fast.
+solid scientific foundation and very fast.
 
 Dependencies
 ============
