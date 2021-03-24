@@ -40,16 +40,34 @@ Query pandas dataframe
     1     2    13
 
 
-Query csv
----------
+Run query on a csv stream
+-------------------------
+
+For larger datasets or datasets that won't fit into memory -
+`stream_csv() <https://vinum.readthedocs.io/en/latest/io.html#stream-csv>`_ is
+the recommended way to execute a query. Compressed files are also supported
+and can be streamed without prior extraction.
+
     >>> import vinum as vn
-    >>> tbl = vn.read_csv('test.csv')
-    >>> res_tbl = tbl.sql('SELECT * FROM t WHERE fare > 5 LIMIT 3')
+    >>> query = 'select passenger_count pc, count(*) from t group by pc'
+    >>> vn.stream_csv('taxi.csv.bz2').sql(query).to_pandas()
+       pc  count
+    0   0    165
+    1   5   3453
+    ...
+
+
+Read and query csv
+------------------
+    >>> import vinum as vn
+    >>> tbl = vn.read_csv('taxi.csv')
+    >>> res_tbl = tbl.sql('SELECT key, fare_amount, passenger_count FROM t '
+    ...                   'WHERE fare_amount > 5 LIMIT 3')
     >>> res_tbl.to_pandas()
-       id                            ts        lat        lng  fare
-    0   1   2010-01-05 16:52:16.0000002  40.711303 -74.016048  16.9
-    1   2  2011-08-18 00:35:00.00000049  40.761270 -73.982738   5.7
-    2   3   2012-04-21 04:30:42.0000001  40.733143 -73.987130   7.7
+                                key  fare_amount  passenger_count
+    0   2010-01-05 16:52:16.0000002         16.9                1
+    1  2011-08-18 00:35:00.00000049          5.7                2
+    2   2012-04-21 04:30:42.0000001          7.7                1
 
 
 Compute Euclidean distance with numpy functions
@@ -113,7 +131,7 @@ Group by z-score
     ...
     >>> vn.register_numpy('score', z_score)
     >>> tbl = vn.read_csv('test.csv')
-    >>> tbl.sql_pd('select int(score(fare)) AS bucket, avg(fare), count(*) '
+    >>> tbl.sql_pd('select to_int(score(fare)) AS bucket, avg(fare), count(*) '
     ...            'FROM t GROUP BY bucket ORDER BY bucket')
        bucket        avg  count
     0       0   8.111630     92
