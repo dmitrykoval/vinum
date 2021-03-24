@@ -41,10 +41,10 @@ Key Features:
   as UDFs, including native Python, NumPy, etc.
 
 * Vinum's execution model doesn't require input datasets to fit into memory,
-  as it operates on the stream batches. However, final result is fully
+  as it operates on a stream of record batches. However, final result is fully
   materialized in memory.
 
-* Written in the mix of C++ and Python and built from ground up on top of
+* Written in the mix of C++ and Python and is built from ground up on top of
   `Apache Arrow <https://arrow.apache.org/>`_, which provides the
   foundation for moving data and enables minimal
   overhead for transferring data to and from Numpy and Pandas.
