@@ -41,8 +41,8 @@ Key Features:
   as UDFs, including native Python, NumPy, etc.
 
 * Vinum's execution model doesn't require input datasets to fit into memory,
-  as it operates on a stream of record batches. However, final result is fully
-  materialized in memory.
+  as it operates on a stream of record batches. However, the final result is
+  fully materialized in memory.
 
 * Written in the mix of C++ and Python and is built from ground up on top of
   `Apache Arrow <https://arrow.apache.org/>`_, which provides the
@@ -217,11 +217,11 @@ Documentation
 What Vinum is not
 =================
 Vinum is not a Database Management System, there are no plans to support
-DML and transactions.
+insert/update/delete statements and transactions.
 If you need a DBMS designed for data analytics and OLAP,
 or don't need Python UDFs,
 consider using excellent `DuckDB <https://duckdb.org/>`_ - it is based on
-solid scientific foundation and very fast.
+solid scientific foundation and is very fast.
 
 Dependencies
 ============
