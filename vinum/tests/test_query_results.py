@@ -1568,6 +1568,7 @@ class TestQueryResults:
     @pytest.mark.parametrize("source_tbl, function, unit", (
             (test_table, 'date', 'D'),
             (test_table, 'datetime', 's'),
+            (test_table, 'now', 's'),
     ))
     def test_datetime_now(self, source_tbl, function, unit):
         test_execution_time_tolerance = np.timedelta64(5, 's')  # in seconds
