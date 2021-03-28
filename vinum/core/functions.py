@@ -137,6 +137,14 @@ class TimestampFunction(DatetimeFunction):
     unit = 's'
 
 
+class NowFunction(DatetimeFunction):
+    """
+    Now built-in function.
+    """
+    def _expr_kernel(self, arguments: Any, table: ArrowTable) -> Any:
+        return super()._expr_kernel(['now'], table)
+
+
 class AbstractCastFunction(VectorizedExpression):
     """
     Abstract cast operator.
@@ -267,6 +275,7 @@ class ConcatFunction(AbstractStringFunction):
                      else np.array(arg, dtype='U')
                      for arg in args)
 
+
 class UpperStringFunction(AbstractStringFunction):
     """
     Upper String Operator.
@@ -364,6 +373,7 @@ _default_functions_registry = {
     'e': (lambda: np.e, FunctionType.NUMPY),
 
     # Datetime
+    'now': (NowFunction, FunctionType.CLASS),
     'date': (DateFunction, FunctionType.CLASS),
     'datetime': (DatetimeFunction, FunctionType.CLASS),
     'from_timestamp': (TimestampFunction, FunctionType.CLASS),
