@@ -176,6 +176,13 @@ Datetime functions
 ==================
 
 
+now
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**now()** - returns current datetime.
+
+Returns current time as a datetime with seconds resolution.
+
 
 date
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
