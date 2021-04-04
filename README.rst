@@ -240,7 +240,7 @@ Inspiration
 
 Future plans
 ============
-* Support joins and sub-queries.
+* Support joins and nested queries.
 * Consider `Gandiva <https://github.com/dremio/gandiva>`_
   for expression evaluation.
 * Parallel execution.
