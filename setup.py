@@ -30,7 +30,7 @@ PROJECT_URLS = {
     "Source Code": "https://github.com/dmitrykoval/vinum",
 }
 INSTALL_REQUIRES = [
-    "pyarrow >= 3.0.0",
+    "pyarrow == 3.0.0",
     "numpy >= 1.19.0",
     "pglast == 1.17",
 ]
