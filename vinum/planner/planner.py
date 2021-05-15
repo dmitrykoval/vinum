@@ -39,15 +39,15 @@ from vinum.core.functions import (
     ensure_numpy_mapping,
 )
 from vinum.core.expressions import (
-    SQL_OPERATOR_FUNCTIONS,
-    BINARY_OPERATORS, )
+    EXPRESSION_FUNCTIONS,
+    BINARY_EXPRESSIONS, )
 from vinum.errors import PlannerError
 from vinum.core.base import (
     Operator,
     VectorizedExpression,
 )
 from vinum.parser.query import (
-    SQLOperator,
+    SQLExpression,
     Expression,
     Column,
     HasAlias,
@@ -177,21 +177,21 @@ class QueryPlanner:
                 )
             arguments.append(arg)
 
-        if expr.sql_operator in SQL_OPERATOR_FUNCTIONS.keys():
-            func, func_type = SQL_OPERATOR_FUNCTIONS[expr.sql_operator]
+        if expr.sql_operator in EXPRESSION_FUNCTIONS.keys():
+            func, func_type = EXPRESSION_FUNCTIONS[expr.sql_operator]
             vec_expr = self._new_vectorized_expression(
                 kernel=func,
                 arguments=arguments,
                 func_type=func_type,
-                is_binary_func=(expr.sql_operator in BINARY_OPERATORS)
+                is_binary_func=(expr.sql_operator in BINARY_EXPRESSIONS)
             )
 
-        elif expr.sql_operator in (SQLOperator.LIKE, SQLOperator.NOT_LIKE):
+        elif expr.sql_operator in (SQLExpression.LIKE, SQLExpression.NOT_LIKE):
             vec_expr = LikeFunction(
                 tuple(arguments),   # type: ignore
-                expr.sql_operator == SQLOperator.NOT_LIKE,
+                expr.sql_operator == SQLExpression.NOT_LIKE,
             )
-        elif expr.sql_operator == SQLOperator.FUNCTION:
+        elif expr.sql_operator == SQLExpression.FUNCTION:
             assert expr.function_name
 
             function_name = expr.function_name.lower()  # type: str
@@ -208,7 +208,7 @@ class QueryPlanner:
                     kernel=func,
                     arguments=arguments,
                     func_type=func_type,
-                    is_binary_func=(expr.sql_operator in BINARY_OPERATORS)
+                    is_binary_func=(expr.sql_operator in BINARY_EXPRESSIONS)
                 )
 
         else:

@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from vinum._typing import QueryBaseType
 
 
-class SQLOperator(Enum):
+class SQLExpression(Enum):
     # Arithmetic operators
     ADDITION = auto()
     SUBTRACTION = auto()
@@ -237,7 +237,7 @@ class Expression(HasAlias, HasColumnName, RecursiveTreePrint):
 
     Parameters
     ----------
-    sql_operator : SQLOperator
+    sql_operator : SQLExpression
         SQL Operator of this expression.
     arguments : Tuple[QueryBaseType, ...]
         Expression arguments.
@@ -247,19 +247,19 @@ class Expression(HasAlias, HasColumnName, RecursiveTreePrint):
         Optional alias.
     """
     def __init__(self,
-                 sql_operator: SQLOperator,
+                 sql_operator: SQLExpression,
                  arguments: Tuple['QueryBaseType', ...],
                  function_name: str = None,
                  alias: Optional[str] = None,
                  shared_id: Optional[str] = None):
-        self._sql_operator: SQLOperator = sql_operator
+        self._sql_operator: SQLExpression = sql_operator
         self._arguments: Tuple['QueryBaseType', ...] = arguments
         self._function_name: Optional[str] = function_name
         self._alias: Optional[str] = alias
         self._shared_id: Optional[str] = shared_id
 
     @property
-    def sql_operator(self) -> SQLOperator:
+    def sql_operator(self) -> SQLExpression:
         return self._sql_operator
 
     @property
@@ -279,7 +279,7 @@ class Expression(HasAlias, HasColumnName, RecursiveTreePrint):
     def get_alias(self) -> Optional[str]:
         if self._alias:
             return self._alias
-        elif self._sql_operator == SQLOperator.FUNCTION:
+        elif self._sql_operator == SQLExpression.FUNCTION:
             return str(self._function_name)
         else:
             return None
@@ -330,7 +330,7 @@ class Expression(HasAlias, HasColumnName, RecursiveTreePrint):
 
         operator_line = (f'{self._level_indent_string(indent_level)}'
                          f'Expression: {self._sql_operator}')
-        if self._sql_operator == SQLOperator.FUNCTION:
+        if self._sql_operator == SQLExpression.FUNCTION:
             operator_line = f'{operator_line}: {self.function_name}'
         if self.is_shared():
             operator_line = f'{operator_line}, IS_SHARED'

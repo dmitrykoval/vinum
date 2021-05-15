@@ -2,7 +2,7 @@ import pytest
 
 from vinum.parser.query import (
     Expression,
-    SQLOperator,
+    SQLExpression,
     SortOrder,
     Literal,
     Column
@@ -81,7 +81,7 @@ class TestSyntaxTree:
         _test_column(query_ast.select_expressions[0], 'tip', 'total')
 
         expr = query_ast.select_expressions[1]
-        self._test_expression(expr, SQLOperator.ADDITION, 2, alias='with_tip')
+        self._test_expression(expr, SQLExpression.ADDITION, 2, alias='with_tip')
 
         _test_column(expr.arguments[0], 'tax')
         _test_column(expr.arguments[1], 'tip')
@@ -96,7 +96,7 @@ class TestSyntaxTree:
         self._test_select_exprs(query_ast, 2)
         expr = query_ast.select_expressions[0]
         self._test_expression(expr,
-                              SQLOperator.FUNCTION,
+                              SQLExpression.FUNCTION,
                               2,
                               function_name='np.power',
                               alias='exp')
@@ -106,14 +106,14 @@ class TestSyntaxTree:
         _test_literal(args[0], 10)
 
         self._test_expression(args[1],
-                              SQLOperator.FUNCTION,
+                              SQLExpression.FUNCTION,
                               1,
                               function_name='np.min')
         _test_column(args[1].arguments[0], 'total')
 
         expr = query_ast.select_expressions[1]
         self._test_expression(expr,
-                              SQLOperator.FUNCTION,
+                              SQLExpression.FUNCTION,
                               0,
                               function_name='count_star',
                               alias='cnt')
@@ -124,15 +124,15 @@ class TestSyntaxTree:
         query_ast = create_query_ast(query, test_arrow_table)
 
         self._test_select_exprs(query_ast, len(test_table_column_names))
-        self._test_expression(query_ast.where_condition, SQLOperator.AND, 2)
+        self._test_expression(query_ast.where_condition, SQLExpression.AND, 2)
 
         left_expr = query_ast.where_condition.arguments[0]
-        self._test_expression(left_expr, SQLOperator.GREATER_THAN, 2)
+        self._test_expression(left_expr, SQLExpression.GREATER_THAN, 2)
         _test_column(left_expr.arguments[0], 'vendor_id')
         _test_literal(left_expr.arguments[1], 1)
 
         right_expr = query_ast.where_condition.arguments[1]
-        self._test_expression(right_expr, SQLOperator.LESS_THAN, 2)
+        self._test_expression(right_expr, SQLExpression.LESS_THAN, 2)
         _test_column(right_expr.arguments[0], 'lat')
         _test_literal(right_expr.arguments[1], 4.5)
 
@@ -144,23 +144,23 @@ class TestSyntaxTree:
         query_ast = create_query_ast(sql, test_arrow_table)
 
         self._test_select_exprs(query_ast, len(test_table_column_names))
-        self._test_expression(query_ast.where_condition, SQLOperator.OR, 2)
+        self._test_expression(query_ast.where_condition, SQLExpression.OR, 2)
 
         left_arg = query_ast.where_condition.arguments[0]
-        self._test_expression(left_arg, SQLOperator.AND, 2)
+        self._test_expression(left_arg, SQLExpression.AND, 2)
 
         nested_left = left_arg.arguments[0]
-        self._test_expression(nested_left, SQLOperator.GREATER_THAN, 2)
+        self._test_expression(nested_left, SQLExpression.GREATER_THAN, 2)
         _test_column(nested_left.arguments[0], 'lat')
         _test_literal(nested_left.arguments[1], 2.0)
 
         nested_right = left_arg.arguments[1]
-        self._test_expression(nested_right, SQLOperator.LESS_THAN_OR_EQUAL, 2)
+        self._test_expression(nested_right, SQLExpression.LESS_THAN_OR_EQUAL, 2)
         _test_literal(nested_right.arguments[0], 15)
         _test_column(nested_right.arguments[1], 'total')
 
         right_arg = query_ast.where_condition.arguments[1]
-        self._test_expression(right_arg, SQLOperator.EQUALS, 2)
+        self._test_expression(right_arg, SQLExpression.EQUALS, 2)
         _test_column(right_arg.arguments[0], 'tip')
         _test_literal(right_arg.arguments[1], 12)
 
@@ -180,13 +180,13 @@ class TestSyntaxTree:
         self._test_select_exprs(query_ast, 1)
 
         self._test_expression(query_ast.select_expressions[0],
-                              SQLOperator.FUNCTION,
+                              SQLExpression.FUNCTION,
                               1,
                               function_name='to_int',
                               alias='sqrt')
         nested_expr = query_ast.select_expressions[0].arguments[0]
         self._test_expression(nested_expr,
-                              SQLOperator.FUNCTION,
+                              SQLExpression.FUNCTION,
                               1,
                               function_name='np.sqrt')
         _test_column(nested_expr.arguments[0], 'total')
@@ -194,15 +194,15 @@ class TestSyntaxTree:
         assert query_ast.where_condition is None
 
     @pytest.mark.parametrize("query, sql_operator", (
-            ("select -tip from t", SQLOperator.NEGATION),
-            ("select ~tip from t", SQLOperator.BINARY_NOT),
-            ("select not tip from t", SQLOperator.NOT),
-            ("select tip is null from t", SQLOperator.IS_NULL),
-            ("select tip = null from t", SQLOperator.IS_NULL),
-            ("select tip == null from t", SQLOperator.IS_NULL),
-            ("select tip is not null from t", SQLOperator.IS_NOT_NULL),
-            ("select tip != null from t", SQLOperator.IS_NOT_NULL),
-            ("select tip <> null from t", SQLOperator.IS_NOT_NULL),
+            ("select -tip from t", SQLExpression.NEGATION),
+            ("select ~tip from t", SQLExpression.BINARY_NOT),
+            ("select not tip from t", SQLExpression.NOT),
+            ("select tip is null from t", SQLExpression.IS_NULL),
+            ("select tip = null from t", SQLExpression.IS_NULL),
+            ("select tip == null from t", SQLExpression.IS_NULL),
+            ("select tip is not null from t", SQLExpression.IS_NOT_NULL),
+            ("select tip != null from t", SQLExpression.IS_NOT_NULL),
+            ("select tip <> null from t", SQLExpression.IS_NOT_NULL),
     ))
     def test_unary_sql_operators(self, test_arrow_table, query, sql_operator):
         query_ast = create_query_ast(query, test_arrow_table)
@@ -216,23 +216,23 @@ class TestSyntaxTree:
         assert query_ast.where_condition is None
 
     @pytest.mark.parametrize("query, sql_operator", (
-            ("select 1+2 from t", SQLOperator.ADDITION),
-            ("select 1-2 from t", SQLOperator.SUBTRACTION),
-            ("select 1/2 from t", SQLOperator.DIVISION),
-            ("select 1*2 from t", SQLOperator.MULTIPLICATION),
-            ("select 1%2 from t", SQLOperator.MODULUS),
-            ("select 1&2 from t", SQLOperator.BINARY_AND),
-            ("select 1|2 from t", SQLOperator.BINARY_OR),
-            ("select 1=2 from t", SQLOperator.EQUALS),
-            ("select 1!=2 from t", SQLOperator.NOT_EQUALS),
-            ("select 1<>2 from t", SQLOperator.NOT_EQUALS),
-            ("select 1>2 from t", SQLOperator.GREATER_THAN),
-            ("select 1>=2 from t", SQLOperator.GREATER_THAN_OR_EQUAL),
-            ("select 1<2 from t", SQLOperator.LESS_THAN),
-            ("select 1<=2 from t", SQLOperator.LESS_THAN_OR_EQUAL),
-            ("select 1 and 2 from t", SQLOperator.AND),
-            ("select 1 or 2 from t", SQLOperator.OR),
-            ("select 1 || 2 from t", SQLOperator.CONCAT),
+            ("select 1+2 from t", SQLExpression.ADDITION),
+            ("select 1-2 from t", SQLExpression.SUBTRACTION),
+            ("select 1/2 from t", SQLExpression.DIVISION),
+            ("select 1*2 from t", SQLExpression.MULTIPLICATION),
+            ("select 1%2 from t", SQLExpression.MODULUS),
+            ("select 1&2 from t", SQLExpression.BINARY_AND),
+            ("select 1|2 from t", SQLExpression.BINARY_OR),
+            ("select 1=2 from t", SQLExpression.EQUALS),
+            ("select 1!=2 from t", SQLExpression.NOT_EQUALS),
+            ("select 1<>2 from t", SQLExpression.NOT_EQUALS),
+            ("select 1>2 from t", SQLExpression.GREATER_THAN),
+            ("select 1>=2 from t", SQLExpression.GREATER_THAN_OR_EQUAL),
+            ("select 1<2 from t", SQLExpression.LESS_THAN),
+            ("select 1<=2 from t", SQLExpression.LESS_THAN_OR_EQUAL),
+            ("select 1 and 2 from t", SQLExpression.AND),
+            ("select 1 or 2 from t", SQLExpression.OR),
+            ("select 1 || 2 from t", SQLExpression.CONCAT),
     ))
     def test_binary_sql_operators(self, test_arrow_table, query, sql_operator):
         query_ast = create_query_ast(query, test_arrow_table)
@@ -248,9 +248,9 @@ class TestSyntaxTree:
 
     @pytest.mark.parametrize("query, sql_operator, args", (
             ("select * from tbl where tip in (1,2,3)",
-             SQLOperator.IN, (1, 2, 3)),
+             SQLExpression.IN, (1, 2, 3)),
             ("select * from tbl where tip not in (1,2,3)",
-             SQLOperator.NOT_IN, (1, 2, 3)),
+             SQLExpression.NOT_IN, (1, 2, 3)),
     ))
     def test_where_in_operators(self,
                                 test_arrow_table,
@@ -269,9 +269,9 @@ class TestSyntaxTree:
 
     @pytest.mark.parametrize("query, sql_operator, args", (
             ("select * from t where tip between 1 and 10",
-             SQLOperator.BETWEEN, (1, 10)),
+             SQLExpression.BETWEEN, (1, 10)),
             ("select * from t where tip not between 1 and 10",
-             SQLOperator.NOT_BETWEEN, (1, 10)),
+             SQLExpression.NOT_BETWEEN, (1, 10)),
     ))
     def test_where_between_operators(self,
                                      test_arrow_table,
@@ -290,9 +290,9 @@ class TestSyntaxTree:
 
     @pytest.mark.parametrize("query, sql_operator, args", (
             ("select * from t where tip like '%STR%'",
-             SQLOperator.LIKE, '%STR%'),
+             SQLExpression.LIKE, '%STR%'),
             ("select * from t where tip not like '%STR%'",
-             SQLOperator.NOT_LIKE, '%STR%'),
+             SQLExpression.NOT_LIKE, '%STR%'),
     ))
     def test_where_like_operators(self,
                                   test_arrow_table,
@@ -317,17 +317,17 @@ class TestSyntaxTree:
         self._test_select_exprs(query_ast, len(test_table_column_names) + 2)
 
         expr = query_ast.select_expressions[-2]
-        self._test_expression(expr, SQLOperator.MULTIPLICATION, 2)
+        self._test_expression(expr, SQLExpression.MULTIPLICATION, 2)
         args = expr.arguments
         self._test_expression(args[0],
-                              SQLOperator.FUNCTION,
+                              SQLExpression.FUNCTION,
                               1,
                               function_name='np.log')
         _test_column(args[0].arguments[0], 'tip')
         _test_literal(args[1], 17)
 
         expr = query_ast.select_expressions[-1]
-        self._test_expression(expr, SQLOperator.SUBTRACTION, 2)
+        self._test_expression(expr, SQLExpression.SUBTRACTION, 2)
         args = expr.arguments
         _test_column(args[0], 'total')
         _test_column(args[1], 'tax')
@@ -360,7 +360,7 @@ class TestSyntaxTree:
         _test_column(query_ast.select_expressions[0], 'city_from')
         _test_column(query_ast.select_expressions[1], 'city_to')
         self._test_expression(query_ast.select_expressions[2],
-                              SQLOperator.FUNCTION,
+                              SQLExpression.FUNCTION,
                               0,
                               function_name='count_star')
 
@@ -386,12 +386,12 @@ class TestSyntaxTree:
 
         _test_column(query_ast.select_expressions[0], 'city_from')
         sel_expr = query_ast.select_expressions[1]
-        self._test_expression(sel_expr, SQLOperator.MODULUS, 2, alias=alias)
+        self._test_expression(sel_expr, SQLExpression.MODULUS, 2, alias=alias)
         _test_column(sel_expr.arguments[0], 'timestamp')
         _test_literal(sel_expr.arguments[1], 2)
         assert sel_expr.is_shared() is True
         self._test_expression(query_ast.select_expressions[2],
-                              SQLOperator.FUNCTION,
+                              SQLExpression.FUNCTION,
                               0,
                               function_name='count_star')
 
@@ -402,7 +402,7 @@ class TestSyntaxTree:
         _test_column(query_ast.group_by[0], 'city_from')
         groupby_expr = query_ast.group_by[1]
         self._test_expression(groupby_expr,
-                              SQLOperator.MODULUS,
+                              SQLExpression.MODULUS,
                               2,
                               alias=alias)
         _test_column(groupby_expr.arguments[0], 'timestamp')
@@ -474,7 +474,7 @@ class TestSyntaxTree:
 
         assert query_ast.sort_order[0] == SortOrder.DESC
 
-        self._test_expression(query_ast.order_by[0], SQLOperator.ADDITION, 2)
+        self._test_expression(query_ast.order_by[0], SQLExpression.ADDITION, 2)
         assert query_ast.order_by[0].is_shared() == is_shared
 
     @pytest.mark.parametrize("query, limit, offset", (

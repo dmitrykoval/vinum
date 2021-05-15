@@ -10,7 +10,7 @@ from vinum.parser.query import (
     Column,
     Literal,
     Query,
-    SQLOperator,
+    SQLExpression,
     Expression,
     SortOrder,
 )
@@ -59,32 +59,32 @@ class PglastParser(AbstractSqlParser):
     https://github.com/lelit/pglast
     """
     OPERATORS = {
-        '+': SQLOperator.ADDITION,
-        '-': SQLOperator.SUBTRACTION,
-        '*': SQLOperator.MULTIPLICATION,
-        '/': SQLOperator.DIVISION,
-        '%': SQLOperator.MODULUS,
+        '+': SQLExpression.ADDITION,
+        '-': SQLExpression.SUBTRACTION,
+        '*': SQLExpression.MULTIPLICATION,
+        '/': SQLExpression.DIVISION,
+        '%': SQLExpression.MODULUS,
 
-        '=': SQLOperator.EQUALS,
-        '==': SQLOperator.EQUALS,
-        '!=': SQLOperator.NOT_EQUALS,
-        '<>': SQLOperator.NOT_EQUALS,
-        '>': SQLOperator.GREATER_THAN,
-        '>=': SQLOperator.GREATER_THAN_OR_EQUAL,
-        '<': SQLOperator.LESS_THAN,
-        '<=': SQLOperator.LESS_THAN_OR_EQUAL,
+        '=': SQLExpression.EQUALS,
+        '==': SQLExpression.EQUALS,
+        '!=': SQLExpression.NOT_EQUALS,
+        '<>': SQLExpression.NOT_EQUALS,
+        '>': SQLExpression.GREATER_THAN,
+        '>=': SQLExpression.GREATER_THAN_OR_EQUAL,
+        '<': SQLExpression.LESS_THAN,
+        '<=': SQLExpression.LESS_THAN_OR_EQUAL,
 
-        '|': SQLOperator.BINARY_OR,
-        '&': SQLOperator.BINARY_AND,
-        '#': SQLOperator.BINARY_XOR,
-        '~': SQLOperator.BINARY_NOT,
-        '||': SQLOperator.CONCAT,
+        '|': SQLExpression.BINARY_OR,
+        '&': SQLExpression.BINARY_AND,
+        '#': SQLExpression.BINARY_XOR,
+        '~': SQLExpression.BINARY_NOT,
+        '||': SQLExpression.CONCAT,
     }
 
     BOOL_OPERATORS = {
-        BoolExprType.AND_EXPR: SQLOperator.AND,
-        BoolExprType.OR_EXPR: SQLOperator.OR,
-        BoolExprType.NOT_EXPR: SQLOperator.NOT,
+        BoolExprType.AND_EXPR: SQLExpression.AND,
+        BoolExprType.OR_EXPR: SQLExpression.OR,
+        BoolExprType.NOT_EXPR: SQLExpression.NOT,
     }
 
     def __init__(self, sql: str, schema: pa.Schema) -> None:
@@ -141,18 +141,18 @@ class PglastParser(AbstractSqlParser):
                         if arg_type in expr:
                             arg = self._parse_node(expr[arg_type])
                             if is_literal(arg) and arg.value is None and name in ('=', '=='):
-                                sql_operator = SQLOperator.IS_NULL
+                                sql_operator = SQLExpression.IS_NULL
                             elif is_literal(arg) and arg.value is None and name in ('!=', '<>'):
-                                sql_operator = SQLOperator.IS_NOT_NULL
+                                sql_operator = SQLExpression.IS_NOT_NULL
                             else:
                                 args.append(arg)
                     if name == '-' and len(args) == 1:
-                        sql_operator = SQLOperator.NEGATION
+                        sql_operator = SQLExpression.NEGATION
                 elif kind == A_Expr_Kind.AEXPR_IN:
                     if name == '=':
-                        sql_operator = SQLOperator.IN
+                        sql_operator = SQLExpression.IN
                     else:
-                        sql_operator = SQLOperator.NOT_IN
+                        sql_operator = SQLExpression.NOT_IN
                     args = [self._parse_node(expr['lexpr'])]
                     in_list = []
                     for arg in expr['rexpr']:
@@ -160,17 +160,17 @@ class PglastParser(AbstractSqlParser):
                     args.append(Literal(in_list))
                 elif kind in (A_Expr_Kind.AEXPR_BETWEEN, A_Expr_Kind.AEXPR_NOT_BETWEEN):
                     if kind == A_Expr_Kind.AEXPR_BETWEEN:
-                        sql_operator = SQLOperator.BETWEEN
+                        sql_operator = SQLExpression.BETWEEN
                     else:
-                        sql_operator = SQLOperator.NOT_BETWEEN
+                        sql_operator = SQLExpression.NOT_BETWEEN
                     args = [self._parse_node(expr['lexpr'])]
                     for arg in expr['rexpr']:
                         args.append(self._parse_node(arg))
                 elif kind == A_Expr_Kind.AEXPR_LIKE:
                     if name == '~~':
-                        sql_operator = SQLOperator.LIKE
+                        sql_operator = SQLExpression.LIKE
                     else:
-                        sql_operator = SQLOperator.NOT_LIKE
+                        sql_operator = SQLExpression.NOT_LIKE
                     args = [
                         self._parse_node(expr['lexpr']),
                         self._parse_node(expr['rexpr'])
@@ -195,9 +195,9 @@ class PglastParser(AbstractSqlParser):
                 )
             elif 'NullTest' in node:
                 expr = node['NullTest']
-                is_null_op = (SQLOperator.IS_NULL
+                is_null_op = (SQLExpression.IS_NULL
                               if expr['nulltesttype'] == 0
-                              else SQLOperator.IS_NOT_NULL
+                              else SQLExpression.IS_NOT_NULL
                               )
                 return Expression(
                     is_null_op,
@@ -213,7 +213,7 @@ class PglastParser(AbstractSqlParser):
                     for arg in expr['args']:
                         args.append(self._parse_node(arg))
                 return Expression(
-                    SQLOperator.FUNCTION,
+                    SQLExpression.FUNCTION,
                     tuple(args),
                     function_name=name
                 )
