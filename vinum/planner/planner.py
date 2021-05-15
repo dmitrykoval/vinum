@@ -38,7 +38,7 @@ from vinum.core.functions import (
     FunctionType,
     ensure_numpy_mapping,
 )
-from vinum.core.sql_operators_mapping import (
+from vinum.core.expressions import (
     SQL_OPERATOR_FUNCTIONS,
     BINARY_OPERATORS, )
 from vinum.errors import PlannerError
